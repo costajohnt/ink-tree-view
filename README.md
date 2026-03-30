@@ -4,6 +4,10 @@
 [![npm version](https://img.shields.io/npm/v/ink-tree-view)](https://www.npmjs.com/package/ink-tree-view)
 [![license](https://img.shields.io/npm/l/ink-tree-view)](https://github.com/costajohnt/ink-tree-view/blob/main/LICENSE)
 
+<p align="center">
+  <img src="media/demo.gif" alt="ink-tree-view demo" width="600">
+</p>
+
 A tree view component for [Ink](https://github.com/vadimdemedes/ink) (React for CLIs). Display hierarchical data with expand/collapse, keyboard navigation, selection modes, custom rendering, virtual scrolling, and async lazy loading.
 
 ## Features
