@@ -1,6 +1,6 @@
 {
   "name": "ink-tree-view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A tree view component for Ink with expand/collapse, keyboard navigation, and selection",
   "author": "John Costa",
   "license": "MIT",
