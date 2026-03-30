@@ -526,6 +526,15 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		setLastData(data);
 	}
 
+	// Store callbacks in refs to avoid infinite loops when consumers
+	// pass inline functions (new reference every render)
+	const onFocusChangeRef = useRef(onFocusChange);
+	onFocusChangeRef.current = onFocusChange;
+	const onExpandChangeRef = useRef(onExpandChange);
+	onExpandChangeRef.current = onExpandChange;
+	const onSelectChangeRef = useRef(onSelectChange);
+	onSelectChangeRef.current = onSelectChange;
+
 	// Fire callbacks on state changes (skip initial mount for onFocusChange)
 	const isInitialMount = useRef(true);
 	useEffect(() => {
@@ -534,20 +543,20 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			return;
 		}
 
-		if (state.focusedId) onFocusChange?.(state.focusedId);
-	}, [state.focusedId, onFocusChange]);
+		if (state.focusedId) onFocusChangeRef.current?.(state.focusedId);
+	}, [state.focusedId]);
 
 	useEffect(() => {
 		if (state.expandedIds !== state.previousExpandedIds) {
-			onExpandChange?.(state.expandedIds);
+			onExpandChangeRef.current?.(state.expandedIds);
 		}
-	}, [state.expandedIds, state.previousExpandedIds, onExpandChange]);
+	}, [state.expandedIds, state.previousExpandedIds]);
 
 	useEffect(() => {
 		if (state.selectedIds !== state.previousSelectedIds) {
-			onSelectChange?.(state.selectedIds);
+			onSelectChangeRef.current?.(state.selectedIds);
 		}
-	}, [state.selectedIds, state.previousSelectedIds, onSelectChange]);
+	}, [state.selectedIds, state.previousSelectedIds]);
 
 	// Compute viewportNodes from state
 	const viewportNodes = useMemo(() => {
