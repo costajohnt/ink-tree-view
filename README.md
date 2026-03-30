@@ -1,8 +1,8 @@
 # ink-tree-view
 
-[![CI](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml/badge.svg)](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/ink-tree-view)](https://www.npmjs.com/package/ink-tree-view)
-[![license](https://img.shields.io/npm/l/ink-tree-view)](https://github.com/costajohnt/ink-tree-view/blob/main/LICENSE)
+[![CI](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml/badge.svg)](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/ink-tree-view)](https://github.com/costajohnt/ink-tree-view/blob/master/LICENSE)
 
 <p align="center">
   <img src="media/demo.gif" alt="ink-tree-view demo" width="600">
@@ -380,7 +380,7 @@ Run `npm run build` to compile and `npm run typecheck` to verify types.
 
 ## Changelog
 
-See [GitHub Releases](https://github.com/costajohnt/ink-tree-view/releases) for a list of changes.
+See [GitHub Releases](https://github.com/costajohnt/ink-tree-view/releases).
 
 ## License
 
