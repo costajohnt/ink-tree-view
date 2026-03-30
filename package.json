@@ -1,0 +1,45 @@
+{
+  "name": "ink-tree-view",
+  "version": "1.0.0",
+  "description": "A tree view component for Ink with expand/collapse, keyboard navigation, and selection",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "ink": ">=5.0.0",
+    "react": ">=18.0.0"
+  },
+  "dependencies": {
+    "figures": "^6.1.0"
+  },
+  "devDependencies": {
+    "@sindresorhus/tsconfig": "^5.0.0",
+    "@types/react": "^18.3.2",
+    "ink": "^5.0.0",
+    "ink-testing-library": "^4.0.0",
+    "react": "^18.3.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.5",
+    "vitest": "^2.0.0",
+    "delay": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
