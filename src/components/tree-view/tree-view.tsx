@@ -13,6 +13,7 @@ export function TreeView<T = Record<string, unknown>>({
 	visibleNodeCount,
 	renderNode,
 	loadChildren,
+	onLoadError,
 	onFocusChange,
 	onExpandChange,
 	onSelectChange,
@@ -34,6 +35,7 @@ export function TreeView<T = Record<string, unknown>>({
 		selectionMode,
 		state,
 		loadChildren,
+		onLoadError,
 	});
 
 	const styles = theme.styles;

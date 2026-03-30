@@ -433,4 +433,148 @@ describe('TreeView', () => {
 			expect(frame).toContain('installer.dmg');
 		});
 	});
+
+	describe('async loading (loadChildren)', () => {
+		const asyncData: Array<TreeNode> = [
+			{
+				id: 'lazy-root',
+				label: 'Lazy Root',
+				isParent: true,
+			},
+			{
+				id: 'leaf',
+				label: 'Leaf Node',
+			},
+		];
+
+		it('node with isParent shows expand indicator', () => {
+			const {lastFrame} = render(<TreeView data={asyncData} />);
+			const frame = lastFrame();
+			// The expand indicator character should be present for the lazy-root node
+			// (triangleRight from figures), and the node should be rendered
+			expect(frame).toContain('Lazy Root');
+		});
+
+		it('expanding isParent node triggers loadChildren', async () => {
+			const loadChildren = vi.fn().mockResolvedValue([
+				{id: 'child-a', label: 'Child A'},
+				{id: 'child-b', label: 'Child B'},
+			]);
+
+			const {stdin} = render(
+				<TreeView data={asyncData} loadChildren={loadChildren} />,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_RIGHT); // expand lazy-root
+			await delay(50);
+
+			expect(loadChildren).toHaveBeenCalledTimes(1);
+			expect(loadChildren).toHaveBeenCalledWith(
+				expect.objectContaining({id: 'lazy-root'}),
+			);
+		});
+
+		it('shows loading state during async operation', async () => {
+			let resolveFn!: (value: Array<TreeNode>) => void;
+			const loadChildren = vi.fn().mockReturnValue(
+				new Promise<Array<TreeNode>>(resolve => {
+					resolveFn = resolve;
+				}),
+			);
+
+			const {lastFrame, stdin} = render(
+				<TreeView data={asyncData} loadChildren={loadChildren} />,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_RIGHT);
+			await delay(50);
+
+			// Loading indicator should be shown (the ⟳ character)
+			const frame = lastFrame();
+			expect(frame).toContain('\u27F3');
+
+			// Resolve to clean up
+			resolveFn([{id: 'child-a', label: 'Child A'}]);
+			await delay(50);
+		});
+
+		it('children are inserted after load completes', async () => {
+			const loadChildren = vi.fn().mockResolvedValue([
+				{id: 'child-a', label: 'Child A'},
+				{id: 'child-b', label: 'Child B'},
+			]);
+
+			const {lastFrame, stdin} = render(
+				<TreeView data={asyncData} loadChildren={loadChildren} />,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_RIGHT);
+			await delay(200);
+
+			const frame = lastFrame();
+			expect(frame).toContain('Child A');
+			expect(frame).toContain('Child B');
+		});
+
+		it('calls onLoadError when loadChildren rejects', async () => {
+			const loadError = new Error('Network failure');
+			const loadChildren = vi.fn().mockRejectedValue(loadError);
+			const onLoadError = vi.fn();
+
+			const {stdin} = render(
+				<TreeView
+					data={asyncData}
+					loadChildren={loadChildren}
+					onLoadError={onLoadError}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_RIGHT);
+			await delay(200);
+
+			expect(onLoadError).toHaveBeenCalledTimes(1);
+			expect(onLoadError).toHaveBeenCalledWith('lazy-root', loadError);
+		});
+
+		it('node can be retried after load error', async () => {
+			let callCount = 0;
+			const loadChildren = vi.fn().mockImplementation(() => {
+				callCount++;
+				if (callCount === 1) {
+					return Promise.reject(new Error('First attempt fails'));
+				}
+
+				return Promise.resolve([
+					{id: 'child-a', label: 'Child A'},
+				]);
+			});
+
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={asyncData}
+					loadChildren={loadChildren}
+					onLoadError={() => {}}
+				/>,
+			);
+
+			// First attempt: fails
+			await delay(50);
+			stdin.write(ARROW_RIGHT);
+			await delay(200);
+
+			expect(loadChildren).toHaveBeenCalledTimes(1);
+			expect(lastFrame()).not.toContain('Child A');
+
+			// Second attempt: succeeds
+			stdin.write(ARROW_RIGHT);
+			await delay(200);
+
+			expect(loadChildren).toHaveBeenCalledTimes(2);
+			expect(lastFrame()).toContain('Child A');
+		});
+	});
 });

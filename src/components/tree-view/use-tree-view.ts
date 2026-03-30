@@ -8,6 +8,7 @@ export type UseTreeViewProps<T = Record<string, unknown>> = {
 	selectionMode: SelectionMode;
 	state: TreeViewState<T>;
 	loadChildren?: AsyncChildrenFn<T>;
+	onLoadError?: (nodeId: string, error: Error) => void;
 };
 
 export function useTreeView<T>({
@@ -15,6 +16,7 @@ export function useTreeView<T>({
 	selectionMode,
 	state,
 	loadChildren,
+	onLoadError,
 }: UseTreeViewProps<T>) {
 	const loadingRef = useRef(new Set<string>());
 	const stateRef = useRef(state);
@@ -22,6 +24,9 @@ export function useTreeView<T>({
 
 	const loadChildrenRef = useRef(loadChildren);
 	loadChildrenRef.current = loadChildren;
+
+	const onLoadErrorRef = useRef(onLoadError);
+	onLoadErrorRef.current = onLoadError;
 
 	const triggerLoadRef = useRef(async (nodeId: string) => {
 		if (loadingRef.current.has(nodeId)) return;
@@ -39,8 +44,11 @@ export function useTreeView<T>({
 			const children = await currentLoadChildren(flat.node);
 			stateRef.current.insertChildren(nodeId, children);
 			stateRef.current.expandNode(nodeId);
-		} catch {
-			// Silently fail, user can retry
+		} catch (error: unknown) {
+			const err =
+				error instanceof Error ? error : new Error(String(error));
+			stateRef.current.setChildrenError(nodeId);
+			onLoadErrorRef.current?.(nodeId, err);
 		} finally {
 			stateRef.current.setLoading(nodeId, false);
 			loadingRef.current.delete(nodeId);

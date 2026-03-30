@@ -13,6 +13,13 @@ export type TreeNode<T = Record<string, unknown>> = {
 	data?: T;
 	/** Child nodes. Undefined or empty array means leaf node. */
 	children?: Array<TreeNode<T>>;
+	/**
+	 * Explicitly marks this node as a parent that can have children loaded
+	 * asynchronously via `loadChildren`. When true, the node shows an expand
+	 * indicator even if `children` is empty or undefined, and expanding it
+	 * triggers the `loadChildren` callback.
+	 */
+	isParent?: boolean;
 };
 
 /**
@@ -97,6 +104,12 @@ export type TreeViewProps<T = Record<string, unknown>> = {
 	 * Async function to load children on demand.
 	 */
 	readonly loadChildren?: AsyncChildrenFn<T>;
+
+	/**
+	 * Called when `loadChildren` rejects. Receives the node ID and error.
+	 * The node's loading state is automatically cleared so the user can retry.
+	 */
+	readonly onLoadError?: (nodeId: string, error: Error) => void;
 
 	/** Called when the focused node changes. */
 	readonly onFocusChange?: (nodeId: string) => void;

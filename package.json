@@ -1,8 +1,25 @@
 {
   "name": "ink-tree-view",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A tree view component for Ink with expand/collapse, keyboard navigation, and selection",
+  "author": "John Costa",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/costajohnt/ink-tree-view"
+  },
+  "homepage": "https://github.com/costajohnt/ink-tree-view#readme",
+  "bugs": "https://github.com/costajohnt/ink-tree-view/issues",
+  "keywords": [
+    "ink",
+    "cli",
+    "tree",
+    "treeview",
+    "terminal",
+    "react",
+    "tui",
+    "hierarchy"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

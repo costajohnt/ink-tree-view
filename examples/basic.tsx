@@ -1,6 +1,6 @@
 import React from 'react';
 import {render} from 'ink';
-import {TreeView, type TreeNode} from '../src/index.js';
+import {TreeView, type TreeNode} from 'ink-tree-view';
 
 const fileTree: Array<TreeNode> = [
 	{

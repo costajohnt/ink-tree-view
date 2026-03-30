@@ -84,7 +84,7 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 			}
 
 			const children = node.children ?? [];
-			const hasChildren = children.length > 0;
+			const hasChildren = children.length > 0 || (node.isParent === true);
 			const childrenIds = children.map(c => c.id);
 
 			const previousSiblingId =

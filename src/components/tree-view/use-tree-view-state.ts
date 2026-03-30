@@ -8,6 +8,8 @@ export type State<T> = {
 	nodeMap: TreeNodeMap<T>;
 	expandedIds: Set<string>;
 	visibleIds: string[];
+	/** O(1) lookup from node ID to index in visibleIds. */
+	visibleIdIndex: Map<string, number>;
 	focusedId: string | undefined;
 	visibleNodeCount: number;
 	viewportFromIndex: number;
@@ -37,8 +39,20 @@ export type Action<T> =
 	| {type: 'focus-parent'}
 	| {type: 'focus-first-child'}
 	| {type: 'set-loading'; nodeId: string; isLoading: boolean}
+	| {type: 'set-children-error'; nodeId: string}
 	| {type: 'insert-children'; parentId: string; children: Array<TreeNode<T>>}
 	| {type: 'reset'; state: State<T>};
+
+// ─── Index helper ──────────────────────────────────────────────────────────
+
+function buildVisibleIdIndex(visibleIds: string[]): Map<string, number> {
+	const map = new Map<string, number>();
+	for (let i = 0; i < visibleIds.length; i++) {
+		map.set(visibleIds[i]!, i);
+	}
+
+	return map;
+}
 
 // ─── Viewport helper ────────────────────────────────────────────────────────
 
@@ -121,7 +135,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 	switch (action.type) {
 		case 'focus-next': {
 			if (!state.focusedId) return state;
-			const idx = state.visibleIds.indexOf(state.focusedId);
+			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
 			if (idx < 0 || idx >= state.visibleIds.length - 1) return state;
 			const nextId = state.visibleIds[idx + 1]!;
 			return {
@@ -133,7 +147,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 
 		case 'focus-previous': {
 			if (!state.focusedId) return state;
-			const idx = state.visibleIds.indexOf(state.focusedId);
+			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
 			if (idx <= 0) return state;
 			const prevId = state.visibleIds[idx - 1]!;
 			return {
@@ -184,6 +198,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				previousExpandedIds: state.expandedIds,
 				expandedIds: newExpanded,
 				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
 				...adjustViewportForNewVisible(
 					{...state, visibleIds: newVisible},
 					newVisible,
@@ -220,6 +235,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				previousExpandedIds: state.expandedIds,
 				expandedIds: newExpanded,
 				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
 				...adjustViewportForNewVisible(
 					{...state, focusedId: newFocusedId, visibleIds: newVisible},
 					newVisible,
@@ -248,6 +264,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				previousExpandedIds: state.expandedIds,
 				expandedIds: allParentIds,
 				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
 				...adjustViewportForNewVisible(
 					{...state, visibleIds: newVisible},
 					newVisible,
@@ -263,6 +280,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				previousExpandedIds: state.expandedIds,
 				expandedIds: newExpanded,
 				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
 				focusedId: newVisible[0],
 				viewportFromIndex: 0,
 				viewportToIndex: Math.min(
@@ -304,7 +322,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 			if (!state.focusedId) return state;
 			const flat = state.nodeMap.get(state.focusedId);
 			if (!flat?.parentId) return state;
-			const parentIdx = state.visibleIds.indexOf(flat.parentId);
+			const parentIdx = state.visibleIdIndex.get(flat.parentId) ?? -1;
 			if (parentIdx < 0) return state;
 			return {
 				...state,
@@ -319,7 +337,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 			if (!flat || flat.childrenIds.length === 0) return state;
 			if (!state.expandedIds.has(state.focusedId)) return state;
 			const firstChildId = flat.childrenIds[0]!;
-			const childIdx = state.visibleIds.indexOf(firstChildId);
+			const childIdx = state.visibleIdIndex.get(firstChildId) ?? -1;
 			if (childIdx < 0) return state;
 			return {
 				...state,
@@ -339,6 +357,12 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 			return {...state, loadingIds: newLoading};
 		}
 
+		case 'set-children-error': {
+			const newLoading = new Set(state.loadingIds);
+			newLoading.delete(action.nodeId);
+			return {...state, loadingIds: newLoading};
+		}
+
 		case 'insert-children': {
 			const parentFlat = state.nodeMap.get(action.parentId);
 			if (!parentFlat) return state;
@@ -351,6 +375,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				...state,
 				nodeMap: newNodeMap,
 				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
 			};
 		}
 
@@ -407,6 +432,7 @@ export function createDefaultState<T>({
 		nodeMap,
 		expandedIds,
 		visibleIds,
+		visibleIdIndex: buildVisibleIdIndex(visibleIds),
 		focusedId: visibleIds[0],
 		visibleNodeCount,
 		viewportFromIndex: 0,
@@ -459,6 +485,7 @@ export type TreeViewState<T = Record<string, unknown>> = {
 	focusParent: () => void;
 	focusFirstChild: () => void;
 	setLoading: (nodeId: string, isLoading: boolean) => void;
+	setChildrenError: (nodeId: string) => void;
 	insertChildren: (
 		parentId: string,
 		children: Array<TreeNode<T>>,
@@ -606,6 +633,11 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			dispatch({type: 'set-loading', nodeId, isLoading}),
 		[],
 	);
+	const setChildrenError = useCallback(
+		(nodeId: string) =>
+			dispatch({type: 'set-children-error', nodeId}),
+		[],
+	);
 	const insertChildren = useCallback(
 		(parentId: string, children: Array<TreeNode<T>>) =>
 			dispatch({type: 'insert-children', parentId, children}),
@@ -639,6 +671,7 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		focusParent,
 		focusFirstChild,
 		setLoading,
+		setChildrenError,
 		insertChildren,
 	};
 }

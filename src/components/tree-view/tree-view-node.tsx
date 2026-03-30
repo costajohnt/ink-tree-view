@@ -39,7 +39,7 @@ export function TreeViewNode<T>({
 			)}
 
 			{/* Indentation based on depth */}
-			{depth > 0 && <Text>{' '.repeat(depth * 2)}</Text>}
+			{depth > 0 && <Box {...styles.indent({depth})} />}
 
 			{/* Multi-select checkbox */}
 			{selectionMode === 'multiple' && (
@@ -49,7 +49,7 @@ export function TreeViewNode<T>({
 			)}
 
 			{/* Expand/collapse indicator */}
-			<Text {...styles.expandIndicator({isExpanded})}>{expandChar}</Text>
+			<Text {...(isLoading ? styles.loadingIndicator() : styles.expandIndicator({isExpanded}))}>{expandChar}</Text>
 
 			{/* Node label */}
 			<Text {...styles.label({isFocused, isSelected})}>{node.label}</Text>
