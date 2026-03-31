@@ -20,6 +20,10 @@ export type FlatNode<T = Record<string, unknown>> = {
 	previousSiblingId: string | undefined;
 	/** Next sibling's ID, or undefined. */
 	nextSiblingId: string | undefined;
+	/** Zero-based index among siblings. */
+	siblingIndex: number;
+	/** Total number of siblings (including this node). */
+	siblingCount: number;
 };
 
 /**
@@ -103,6 +107,8 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 				childrenIds,
 				previousSiblingId,
 				nextSiblingId,
+				siblingIndex,
+				siblingCount: siblings.length,
 			};
 
 			this.map.set(node.id, flatNode);

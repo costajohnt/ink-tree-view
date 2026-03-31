@@ -1,8 +1,8 @@
-import {Box, Text} from 'ink';
+import {Box, Text, useIsScreenReaderEnabled} from 'ink';
 import {type TreeViewProps} from '../../types.js';
 import {useTreeViewState} from './use-tree-view-state.js';
 import {useTreeView} from './use-tree-view.js';
-import {TreeViewNode} from './tree-view-node.js';
+import {TreeViewNode, buildNodeAriaLabel, buildNodeAriaState} from './tree-view-node.js';
 import theme from './theme.js';
 
 export function TreeView<T = Record<string, unknown>>({
@@ -18,6 +18,7 @@ export function TreeView<T = Record<string, unknown>>({
 	onExpandChange,
 	onSelectChange,
 	isDisabled = false,
+	ariaLabel = 'Tree view',
 }: TreeViewProps<T>) {
 	const state = useTreeViewState<T>({
 		data,
@@ -39,18 +40,38 @@ export function TreeView<T = Record<string, unknown>>({
 	});
 
 	const styles = theme.styles;
+	const isScreenReaderEnabled = useIsScreenReaderEnabled();
 
 	return (
-		<Box {...styles.container()}>
+		// Ink's aria-role enum does not include "tree"/"treeitem"/"group",
+		// so we use "list"/"listitem" as the closest available semantic match.
+		<Box
+			{...styles.container()}
+			aria-role="list"
+			aria-label={ariaLabel}
+		>
 			{state.hasScrollUp && (
-				<Text dimColor>
+				<Text dimColor aria-hidden>
 					{'  '}\u2191 {state.viewportFromIndex} more above
 				</Text>
 			)}
 			{state.viewportNodes.map(({node, state: nodeState}) => {
+				const flatNode = state.nodeMap.get(node.id);
+				const siblingPosition = flatNode ? flatNode.siblingIndex + 1 : 1;
+				const siblingCount = flatNode ? flatNode.siblingCount : 1;
+
 				if (renderNode) {
+					const nodeAriaLabel = isScreenReaderEnabled
+						? buildNodeAriaLabel(node.label, nodeState, siblingPosition, siblingCount)
+						: undefined;
+
 					return (
-						<Box key={node.id}>
+						<Box
+							key={node.id}
+							aria-role="listitem"
+							aria-label={nodeAriaLabel}
+							aria-state={buildNodeAriaState(nodeState, selectionMode)}
+						>
 							{renderNode({node, state: nodeState})}
 						</Box>
 					);
@@ -63,11 +84,14 @@ export function TreeView<T = Record<string, unknown>>({
 						nodeState={nodeState}
 						selectionMode={selectionMode}
 						styles={styles}
+						isScreenReaderEnabled={isScreenReaderEnabled}
+						siblingPosition={siblingPosition}
+						siblingCount={siblingCount}
 					/>
 				);
 			})}
 			{state.hasScrollDown && (
-				<Text dimColor>
+				<Text dimColor aria-hidden>
 					{'  '}\u2193 {state.visibleCount - state.viewportToIndex}{' '}
 					more below
 				</Text>
