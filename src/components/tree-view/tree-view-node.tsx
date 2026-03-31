@@ -89,9 +89,11 @@ export function TreeViewNode<T>({
 		<Box
 			{...styles.node({isFocused})}
 			aria-role="listitem"
-			aria-label={ariaLabel}
 			aria-state={buildNodeAriaState(nodeState, selectionMode)}
 		>
+			{ariaLabel && (
+				<Text aria-hidden>{ariaLabel}</Text>
+			)}
 			{/* Focus indicator */}
 			{isFocused && (
 				<Text {...styles.focusIndicator()} aria-hidden>{figures.pointer}</Text>
