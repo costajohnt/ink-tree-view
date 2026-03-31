@@ -92,7 +92,7 @@ export function TreeViewNode<T>({
 			aria-state={buildNodeAriaState(nodeState, selectionMode)}
 		>
 			{ariaLabel && (
-				<Text aria-hidden>{ariaLabel}</Text>
+				<Text aria-label={ariaLabel}>{''}</Text>
 			)}
 			{/* Focus indicator */}
 			{isFocused && (
