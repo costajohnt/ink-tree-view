@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/ink-tree-view)](https://www.npmjs.com/package/ink-tree-view)
 [![CI](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml/badge.svg)](https://github.com/costajohnt/ink-tree-view/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/ink-tree-view)](https://github.com/costajohnt/ink-tree-view/blob/master/LICENSE)
+[![license](https://img.shields.io/npm/l/ink-tree-view)](https://github.com/costajohnt/ink-tree-view/blob/master/LICENSE) [![npm downloads](https://img.shields.io/npm/dw/ink-tree-view.svg)](https://www.npmjs.com/package/ink-tree-view)
 
 <p align="center">
   <img src="media/demo.gif" alt="ink-tree-view demo" width="600">
