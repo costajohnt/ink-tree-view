@@ -48,8 +48,10 @@ export function TreeView<T = Record<string, unknown>>({
 		<Box
 			{...styles.container()}
 			aria-role="list"
-			aria-label={ariaLabel}
 		>
+			{isScreenReaderEnabled && (
+				<Text aria-hidden>{ariaLabel}</Text>
+			)}
 			{state.hasScrollUp && (
 				<Text dimColor aria-hidden>
 					{'  '}\u2191 {state.viewportFromIndex} more above
@@ -69,9 +71,11 @@ export function TreeView<T = Record<string, unknown>>({
 						<Box
 							key={node.id}
 							aria-role="listitem"
-							aria-label={nodeAriaLabel}
 							aria-state={buildNodeAriaState(nodeState, selectionMode)}
 						>
+							{nodeAriaLabel && (
+								<Text aria-hidden>{nodeAriaLabel}</Text>
+							)}
 							{renderNode({node, state: nodeState})}
 						</Box>
 					);
