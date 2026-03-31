@@ -2,7 +2,7 @@ import {Box, Text, useIsScreenReaderEnabled} from 'ink';
 import {type TreeViewProps} from '../../types.js';
 import {useTreeViewState} from './use-tree-view-state.js';
 import {useTreeView} from './use-tree-view.js';
-import {TreeViewNode, buildNodeAriaLabel} from './tree-view-node.js';
+import {TreeViewNode, buildNodeAriaLabel, buildNodeAriaState} from './tree-view-node.js';
 import theme from './theme.js';
 
 export function TreeView<T = Record<string, unknown>>({
@@ -65,21 +65,12 @@ export function TreeView<T = Record<string, unknown>>({
 						? buildNodeAriaLabel(node.label, nodeState, siblingPosition, siblingCount)
 						: undefined;
 
-					const ariaState: {expanded?: boolean; selected?: boolean} = {};
-					if (nodeState.hasChildren) {
-						ariaState.expanded = nodeState.isExpanded;
-					}
-
-					if (selectionMode !== 'none') {
-						ariaState.selected = nodeState.isSelected;
-					}
-
 					return (
 						<Box
 							key={node.id}
 							aria-role="listitem"
 							aria-label={nodeAriaLabel}
-							aria-state={Object.keys(ariaState).length > 0 ? ariaState : undefined}
+							aria-state={buildNodeAriaState(nodeState, selectionMode)}
 						>
 							{renderNode({node, state: nodeState})}
 						</Box>

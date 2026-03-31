@@ -45,6 +45,22 @@ export function buildNodeAriaLabel(
 	return parts.join(', ');
 }
 
+export function buildNodeAriaState(
+	nodeState: TreeNodeState,
+	selectionMode: SelectionMode,
+): {expanded?: boolean; selected?: boolean} | undefined {
+	const state: {expanded?: boolean; selected?: boolean} = {};
+	if (nodeState.hasChildren) {
+		state.expanded = nodeState.isExpanded;
+	}
+
+	if (selectionMode !== 'none') {
+		state.selected = nodeState.isSelected;
+	}
+
+	return Object.keys(state).length > 0 ? state : undefined;
+}
+
 export function TreeViewNode<T>({
 	node,
 	nodeState,
@@ -69,22 +85,12 @@ export function TreeViewNode<T>({
 		? buildNodeAriaLabel(node.label, nodeState, siblingPosition, siblingCount)
 		: undefined;
 
-	// Build aria-state for the node
-	const ariaState: {expanded?: boolean; selected?: boolean} = {};
-	if (hasChildren) {
-		ariaState.expanded = isExpanded;
-	}
-
-	if (selectionMode !== 'none') {
-		ariaState.selected = isSelected;
-	}
-
 	return (
 		<Box
 			{...styles.node({isFocused})}
 			aria-role="listitem"
 			aria-label={ariaLabel}
-			aria-state={Object.keys(ariaState).length > 0 ? ariaState : undefined}
+			aria-state={buildNodeAriaState(nodeState, selectionMode)}
 		>
 			{/* Focus indicator */}
 			{isFocused && (
