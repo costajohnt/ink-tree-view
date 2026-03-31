@@ -2,7 +2,7 @@ import {Box, Text, useIsScreenReaderEnabled} from 'ink';
 import {type TreeViewProps} from '../../types.js';
 import {useTreeViewState} from './use-tree-view-state.js';
 import {useTreeView} from './use-tree-view.js';
-import {TreeViewNode} from './tree-view-node.js';
+import {TreeViewNode, buildNodeAriaLabel} from './tree-view-node.js';
 import theme from './theme.js';
 
 export function TreeView<T = Record<string, unknown>>({
@@ -18,6 +18,7 @@ export function TreeView<T = Record<string, unknown>>({
 	onExpandChange,
 	onSelectChange,
 	isDisabled = false,
+	ariaLabel = 'Tree view',
 }: TreeViewProps<T>) {
 	const state = useTreeViewState<T>({
 		data,
@@ -42,10 +43,12 @@ export function TreeView<T = Record<string, unknown>>({
 	const isScreenReaderEnabled = useIsScreenReaderEnabled();
 
 	return (
+		// Ink's aria-role enum does not include "tree"/"treeitem"/"group",
+		// so we use "list"/"listitem" as the closest available semantic match.
 		<Box
 			{...styles.container()}
 			aria-role="list"
-			aria-label="Tree view"
+			aria-label={ariaLabel}
 		>
 			{state.hasScrollUp && (
 				<Text dimColor aria-hidden>
@@ -53,29 +56,34 @@ export function TreeView<T = Record<string, unknown>>({
 				</Text>
 			)}
 			{state.viewportNodes.map(({node, state: nodeState}) => {
+				const flatNode = state.nodeMap.get(node.id);
+				const siblingPosition = flatNode ? flatNode.siblingIndex + 1 : 1;
+				const siblingCount = flatNode ? flatNode.siblingCount : 1;
+
 				if (renderNode) {
+					const nodeAriaLabel = isScreenReaderEnabled
+						? buildNodeAriaLabel(node.label, nodeState, siblingPosition, siblingCount)
+						: undefined;
+
+					const ariaState: {expanded?: boolean; selected?: boolean} = {};
+					if (nodeState.hasChildren) {
+						ariaState.expanded = nodeState.isExpanded;
+					}
+
+					if (selectionMode !== 'none') {
+						ariaState.selected = nodeState.isSelected;
+					}
+
 					return (
-						<Box key={node.id} aria-role="listitem">
+						<Box
+							key={node.id}
+							aria-role="listitem"
+							aria-label={nodeAriaLabel}
+							aria-state={Object.keys(ariaState).length > 0 ? ariaState : undefined}
+						>
 							{renderNode({node, state: nodeState})}
 						</Box>
 					);
-				}
-
-				// Compute sibling position for this node
-				const flatNode = state.nodeMap.get(node.id);
-				let siblingPosition = 1;
-				let siblingCount = 1;
-				if (flatNode) {
-					if (flatNode.parentId) {
-						const parentFlat = state.nodeMap.get(flatNode.parentId);
-						if (parentFlat) {
-							siblingCount = parentFlat.childrenIds.length;
-							siblingPosition = parentFlat.childrenIds.indexOf(node.id) + 1;
-						}
-					} else {
-						siblingCount = state.nodeMap.rootIds.length;
-						siblingPosition = state.nodeMap.rootIds.indexOf(node.id) + 1;
-					}
 				}
 
 				return (

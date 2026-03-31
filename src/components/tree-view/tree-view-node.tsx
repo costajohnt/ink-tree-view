@@ -17,6 +17,34 @@ type TreeViewNodeProps<T> = {
 	siblingCount: number;
 };
 
+export function buildNodeAriaLabel(
+	label: string,
+	nodeState: TreeNodeState,
+	siblingPosition: number,
+	siblingCount: number,
+): string {
+	const {depth, hasChildren, isExpanded, isLoading, isSelected} = nodeState;
+	const parts: string[] = [label];
+	parts.push(`item ${siblingPosition} of ${siblingCount}`);
+	if (depth > 0) {
+		parts.push(`depth ${depth}`);
+	}
+
+	if (hasChildren) {
+		parts.push(isExpanded ? 'expanded' : 'collapsed');
+	}
+
+	if (isLoading) {
+		parts.push('loading');
+	}
+
+	if (isSelected) {
+		parts.push('selected');
+	}
+
+	return parts.join(', ');
+}
+
 export function TreeViewNode<T>({
 	node,
 	nodeState,
@@ -37,29 +65,9 @@ export function TreeViewNode<T>({
 		expandChar = isExpanded ? figures.triangleDown : figures.triangleRight;
 	}
 
-	// Build screen reader label with contextual info
-	let ariaLabel: string | undefined;
-	if (isScreenReaderEnabled) {
-		const parts: string[] = [node.label];
-		parts.push(`item ${siblingPosition} of ${siblingCount}`);
-		if (depth > 0) {
-			parts.push(`depth ${depth}`);
-		}
-
-		if (hasChildren) {
-			parts.push(isExpanded ? 'expanded' : 'collapsed');
-		}
-
-		if (isLoading) {
-			parts.push('loading');
-		}
-
-		if (isSelected) {
-			parts.push('selected');
-		}
-
-		ariaLabel = parts.join(', ');
-	}
+	const ariaLabel = isScreenReaderEnabled
+		? buildNodeAriaLabel(node.label, nodeState, siblingPosition, siblingCount)
+		: undefined;
 
 	// Build aria-state for the node
 	const ariaState: {expanded?: boolean; selected?: boolean} = {};

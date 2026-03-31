@@ -125,4 +125,11 @@ export type TreeViewProps<T = Record<string, unknown>> = {
 	 * @default false
 	 */
 	readonly isDisabled?: boolean;
+
+	/**
+	 * Accessible label for the tree container.
+	 * Useful when multiple tree views are on screen.
+	 * @default 'Tree view'
+	 */
+	readonly ariaLabel?: string;
 };

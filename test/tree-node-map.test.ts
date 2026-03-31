@@ -279,6 +279,60 @@ describe('TreeNodeMap', () => {
 		});
 	});
 
+	describe('sibling position', () => {
+		it('assigns correct siblingIndex and siblingCount for root nodes', () => {
+			const map = new TreeNodeMap(sampleData);
+			expect(map.get('root-1')?.siblingIndex).toBe(0);
+			expect(map.get('root-1')?.siblingCount).toBe(3);
+			expect(map.get('root-2')?.siblingIndex).toBe(1);
+			expect(map.get('root-2')?.siblingCount).toBe(3);
+			expect(map.get('root-3')?.siblingIndex).toBe(2);
+			expect(map.get('root-3')?.siblingCount).toBe(3);
+		});
+
+		it('assigns correct siblingIndex and siblingCount for child nodes', () => {
+			const map = new TreeNodeMap(sampleData);
+			expect(map.get('child-1-1')?.siblingIndex).toBe(0);
+			expect(map.get('child-1-1')?.siblingCount).toBe(2);
+			expect(map.get('child-1-2')?.siblingIndex).toBe(1);
+			expect(map.get('child-1-2')?.siblingCount).toBe(2);
+		});
+
+		it('assigns correct siblingIndex and siblingCount for leaf nodes', () => {
+			const map = new TreeNodeMap(sampleData);
+			expect(map.get('leaf-1-1-1')?.siblingIndex).toBe(0);
+			expect(map.get('leaf-1-1-1')?.siblingCount).toBe(2);
+			expect(map.get('leaf-1-1-2')?.siblingIndex).toBe(1);
+			expect(map.get('leaf-1-1-2')?.siblingCount).toBe(2);
+		});
+
+		it('handles single child correctly', () => {
+			const map = new TreeNodeMap(sampleData);
+			expect(map.get('child-2-1')?.siblingIndex).toBe(0);
+			expect(map.get('child-2-1')?.siblingCount).toBe(1);
+			expect(map.get('leaf-1-2-1')?.siblingIndex).toBe(0);
+			expect(map.get('leaf-1-2-1')?.siblingCount).toBe(1);
+		});
+
+		it('preserves siblingIndex and siblingCount after withChildren', () => {
+			const data: Array<TreeNode> = [
+				{id: 'root', label: 'Root', isParent: true},
+			];
+			const map = new TreeNodeMap(data);
+			const newMap = map.withChildren('root', [
+				{id: 'a', label: 'A'},
+				{id: 'b', label: 'B'},
+				{id: 'c', label: 'C'},
+			]);
+			expect(newMap.get('a')?.siblingIndex).toBe(0);
+			expect(newMap.get('a')?.siblingCount).toBe(3);
+			expect(newMap.get('b')?.siblingIndex).toBe(1);
+			expect(newMap.get('b')?.siblingCount).toBe(3);
+			expect(newMap.get('c')?.siblingIndex).toBe(2);
+			expect(newMap.get('c')?.siblingCount).toBe(3);
+		});
+	});
+
 	describe('deep nesting', () => {
 		it('handles 10+ levels correctly', () => {
 			// Build a chain: depth-0 > depth-1 > ... > depth-10

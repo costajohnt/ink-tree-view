@@ -4,7 +4,8 @@ import {render} from 'ink-testing-library';
 import delay from 'delay';
 import {Text} from 'ink';
 import {TreeView} from '../src/components/tree-view/tree-view.js';
-import {type TreeNode, type TreeNodeRendererProps} from '../src/types.js';
+import {buildNodeAriaLabel} from '../src/components/tree-view/tree-view-node.js';
+import {type TreeNode, type TreeNodeRendererProps, type TreeNodeState} from '../src/types.js';
 
 const ARROW_UP = '\u001B[A';
 const ARROW_DOWN = '\u001B[B';
@@ -576,5 +577,92 @@ describe('TreeView', () => {
 			expect(loadChildren).toHaveBeenCalledTimes(2);
 			expect(lastFrame()).toContain('Child A');
 		});
+	});
+});
+
+describe('buildNodeAriaLabel', () => {
+	const baseState: TreeNodeState = {
+		isFocused: false,
+		isExpanded: false,
+		isSelected: false,
+		depth: 0,
+		hasChildren: false,
+		isLoading: false,
+	};
+
+	it('includes label and sibling position', () => {
+		const result = buildNodeAriaLabel('Documents', baseState, 1, 3);
+		expect(result).toBe('Documents, item 1 of 3');
+	});
+
+	it('includes depth when > 0', () => {
+		const result = buildNodeAriaLabel('Photos', {...baseState, depth: 2}, 1, 5);
+		expect(result).toContain('depth 2');
+	});
+
+	it('omits depth when 0', () => {
+		const result = buildNodeAriaLabel('Root', baseState, 1, 1);
+		expect(result).not.toContain('depth');
+	});
+
+	it('includes expanded state for parent nodes', () => {
+		const expanded = buildNodeAriaLabel(
+			'Folder',
+			{...baseState, hasChildren: true, isExpanded: true},
+			1,
+			3,
+		);
+		expect(expanded).toContain('expanded');
+
+		const collapsed = buildNodeAriaLabel(
+			'Folder',
+			{...baseState, hasChildren: true, isExpanded: false},
+			1,
+			3,
+		);
+		expect(collapsed).toContain('collapsed');
+	});
+
+	it('omits expanded/collapsed for leaf nodes', () => {
+		const result = buildNodeAriaLabel('file.txt', baseState, 1, 1);
+		expect(result).not.toContain('expanded');
+		expect(result).not.toContain('collapsed');
+	});
+
+	it('includes loading state', () => {
+		const result = buildNodeAriaLabel(
+			'Lazy',
+			{...baseState, hasChildren: true, isLoading: true},
+			1,
+			1,
+		);
+		expect(result).toContain('loading');
+	});
+
+	it('includes selected state', () => {
+		const result = buildNodeAriaLabel(
+			'Item',
+			{...baseState, isSelected: true},
+			2,
+			5,
+		);
+		expect(result).toContain('selected');
+	});
+
+	it('combines all parts correctly', () => {
+		const result = buildNodeAriaLabel(
+			'Projects',
+			{
+				isFocused: true,
+				isExpanded: true,
+				isSelected: true,
+				depth: 1,
+				hasChildren: true,
+				isLoading: false,
+			},
+			3,
+			4,
+		);
+		expect(result).toBe('Projects, item 3 of 4, depth 1, expanded, selected');
 	});
 });
