@@ -1,6 +1,6 @@
 {
   "name": "ink-tree-view",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A tree view component for Ink with expand/collapse, keyboard navigation, and selection",
   "author": "John Costa",
   "license": "MIT",
@@ -37,6 +37,8 @@
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "xo",
+    "lint:fix": "xo --fix",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -51,12 +53,15 @@
     "@sindresorhus/tsconfig": "^5.0.0",
     "@types/react": "^19.2.14",
     "delay": "^6.0.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "ink": "^6.8.0",
     "ink-testing-library": "^4.0.0",
     "react": "^19.2.4",
     "tsup": "^8.0.0",
     "typescript": "^5.4.5",
-    "vitest": "^2.0.0"
+    "vitest": "^2.0.0",
+    "xo": "^2.0.2"
   },
   "engines": {
     "node": ">=20"
