@@ -79,15 +79,34 @@ export type TreeViewProps<T = Record<string, unknown>> = {
 	readonly selectionMode?: SelectionMode;
 
 	/**
-	 * Set of node IDs that are expanded by default.
+	 * Set of node IDs that are expanded by default (uncontrolled).
 	 * If not provided, all nodes start collapsed.
 	 */
 	readonly defaultExpanded?: ReadonlySet<string> | 'all';
 
 	/**
-	 * Set of node IDs that are selected by default.
+	 * Set of node IDs that are selected by default (uncontrolled).
 	 */
 	readonly defaultSelected?: ReadonlySet<string>;
+
+	/**
+	 * Controlled set of expanded node IDs. When provided, the tree is
+	 * controlled: expand/collapse keys report intent via `onExpandChange`
+	 * instead of mutating internal state, and this prop is authoritative.
+	 */
+	readonly expanded?: ReadonlySet<string>;
+
+	/**
+	 * Controlled set of selected node IDs. When provided, selection is
+	 * controlled and reported via `onSelectChange`.
+	 */
+	readonly selected?: ReadonlySet<string>;
+
+	/**
+	 * Controlled focused node ID. When provided, focus is controlled and
+	 * navigation intent is reported via `onFocusChange`.
+	 */
+	readonly focusedId?: string;
 
 	/**
 	 * Number of visible nodes in the viewport (for virtualization).

@@ -158,8 +158,14 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 		let currentId: string | undefined = nodeId;
 		while (currentId !== undefined) {
 			const flat = this.map.get(currentId);
-			if (!flat) return false;
-			if (flat.parentId === ancestorId) return true;
+			if (!flat) {
+				return false;
+			}
+
+			if (flat.parentId === ancestorId) {
+				return true;
+			}
+
 			currentId = flat.parentId;
 		}
 
@@ -201,13 +207,20 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 	/**
 	 * Insert dynamically-loaded children under a parent node.
 	 * Returns a new TreeNodeMap (immutable operation).
+	 *
+	 * Note: this rebuilds the entire flattened map (O(total nodes)) on every
+	 * insertion. For trees with very frequent async loads this could be made
+	 * incremental, but the full rebuild keeps the sibling/flat-index bookkeeping
+	 * correct and is negligible for typical tree sizes.
 	 */
 	withChildren(
 		parentId: string,
 		children: Array<TreeNode<T>>,
 	): TreeNodeMap<T> {
 		const parentFlat = this.map.get(parentId);
-		if (!parentFlat) return this;
+		if (!parentFlat) {
+			return this;
+		}
 
 		// Reconstruct the tree data with the new children inserted
 		const rebuildNode = (node: TreeNode<T>): TreeNode<T> => {
@@ -216,7 +229,7 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 			}
 
 			if (node.children) {
-				return {...node, children: node.children.map(rebuildNode)};
+				return {...node, children: node.children.map(child => rebuildNode(child))};
 			}
 
 			return node;

@@ -27,10 +27,16 @@ const theme = {
 		expandIndicator: (_props: StyleFnProps): TextProps => ({
 			color: 'gray',
 		}),
-		label: ({isFocused, isSelected}: StyleFnProps): TextProps => {
+		label({isFocused, isSelected}: StyleFnProps): TextProps {
 			let color: string | undefined;
-			if (isSelected) color = 'green';
-			if (isFocused) color = 'blue';
+			if (isSelected) {
+				color = 'green';
+			}
+
+			if (isFocused) {
+				color = 'blue';
+			}
+
 			return {color};
 		},
 		selectedIndicator: (): TextProps => ({

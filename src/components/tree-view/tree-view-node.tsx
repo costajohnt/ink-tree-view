@@ -1,3 +1,4 @@
+import {memo} from 'react';
 import {Box, Text} from 'ink';
 import figures from 'figures';
 import {
@@ -24,8 +25,7 @@ export function buildNodeAriaLabel(
 	siblingCount: number,
 ): string {
 	const {depth, hasChildren, isExpanded, isLoading, isSelected} = nodeState;
-	const parts: string[] = [label];
-	parts.push(`item ${siblingPosition} of ${siblingCount}`);
+	const parts: string[] = [label, `item ${siblingPosition} of ${siblingCount}`];
 	if (depth > 0) {
 		parts.push(`depth ${depth}`);
 	}
@@ -61,7 +61,35 @@ export function buildNodeAriaState(
 	return Object.keys(state).length > 0 ? state : undefined;
 }
 
-export function TreeViewNode<T>({
+/**
+ * Compares two sets of `TreeViewNode` props by their primitive values so
+ * `React.memo` can skip re-rendering rows whose state did not change. Without
+ * this, a keypress recreates every row's `nodeState` object and forces the
+ * whole viewport to re-render.
+ */
+export function areTreeViewNodePropsEqual<T>(
+	previous: TreeViewNodeProps<T>,
+	next: TreeViewNodeProps<T>,
+): boolean {
+	const a = previous.nodeState;
+	const b = next.nodeState;
+	return (
+		previous.node === next.node &&
+		previous.selectionMode === next.selectionMode &&
+		previous.styles === next.styles &&
+		previous.isScreenReaderEnabled === next.isScreenReaderEnabled &&
+		previous.siblingPosition === next.siblingPosition &&
+		previous.siblingCount === next.siblingCount &&
+		a.isFocused === b.isFocused &&
+		a.isExpanded === b.isExpanded &&
+		a.isSelected === b.isSelected &&
+		a.depth === b.depth &&
+		a.hasChildren === b.hasChildren &&
+		a.isLoading === b.isLoading
+	);
+}
+
+function TreeViewNodeInner<T>({
 	node,
 	nodeState,
 	selectionMode,
@@ -91,13 +119,9 @@ export function TreeViewNode<T>({
 			aria-role="listitem"
 			aria-state={buildNodeAriaState(nodeState, selectionMode)}
 		>
-			{ariaLabel && (
-				<Text aria-label={ariaLabel}>{''}</Text>
-			)}
+			{ariaLabel ? <Text aria-label={ariaLabel} /> : null}
 			{/* Focus indicator */}
-			{isFocused && (
-				<Text {...styles.focusIndicator()} aria-hidden>{figures.pointer}</Text>
-			)}
+			{isFocused ? <Text {...styles.focusIndicator()} aria-hidden>{figures.pointer}</Text> : null}
 
 			{/* Indentation based on depth */}
 			{depth > 0 && <Box {...styles.indent({depth})} aria-hidden />}
@@ -116,9 +140,16 @@ export function TreeViewNode<T>({
 			<Text {...styles.label({isFocused, isSelected})}>{node.label}</Text>
 
 			{/* Single-select tick */}
-			{selectionMode === 'single' && isSelected && (
-				<Text {...styles.selectedIndicator()} aria-hidden> {figures.tick}</Text>
-			)}
+			{selectionMode === 'single' && isSelected ? <Text {...styles.selectedIndicator()} aria-hidden> {figures.tick}</Text> : null}
 		</Box>
 	);
 }
+
+// Memoized on primitive props so unrelated rows do not re-render on every
+// keypress. The `as typeof TreeViewNodeInner` cast preserves the generic
+// call signature that `memo` would otherwise erase.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+export const TreeViewNode = memo(
+	TreeViewNodeInner,
+	areTreeViewNodePropsEqual,
+) as typeof TreeViewNodeInner;

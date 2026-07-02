@@ -177,7 +177,9 @@ describe('TreeNodeMap', () => {
 			const map = new TreeNodeMap(sampleData);
 			const allParents = new Set<string>();
 			for (const [id, flat] of map.entries()) {
-				if (flat.hasChildren) allParents.add(id);
+				if (flat.hasChildren) {
+					allParents.add(id);
+				}
 			}
 
 			const visible = map.getVisibleIds(allParents);
@@ -209,7 +211,7 @@ describe('TreeNodeMap', () => {
 				},
 			];
 			expect(() => new TreeNodeMap(data)).toThrow(
-				"TreeView: Duplicate node id 'dup' found",
+				'TreeView: Duplicate node id \'dup\' found',
 			);
 		});
 	});
