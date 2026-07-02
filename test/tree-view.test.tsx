@@ -4,7 +4,11 @@ import {render} from 'ink-testing-library';
 import delay from 'delay';
 import {Text} from 'ink';
 import {TreeView} from '../src/components/tree-view/tree-view.js';
-import {buildNodeAriaLabel} from '../src/components/tree-view/tree-view-node.js';
+import {
+	buildNodeAriaLabel,
+	areTreeViewNodePropsEqual,
+} from '../src/components/tree-view/tree-view-node.js';
+import theme from '../src/components/tree-view/theme.js';
 import {type TreeNode, type TreeNodeRendererProps, type TreeNodeState} from '../src/types.js';
 
 const ARROW_UP = '\u001B[A';
@@ -13,6 +17,11 @@ const ARROW_RIGHT = '\u001B[C';
 const ARROW_LEFT = '\u001B[D';
 const ENTER = '\r';
 const SPACE = ' ';
+const ESC = String.fromCodePoint(27);
+const HOME = `${ESC}[H`;
+const END = `${ESC}[F`;
+const PAGE_UP = `${ESC}[5~`;
+const PAGE_DOWN = `${ESC}[6~`;
 
 const sampleData: Array<TreeNode> = [
 	{
@@ -578,6 +587,236 @@ describe('TreeView', () => {
 			expect(lastFrame()).toContain('Child A');
 		});
 	});
+
+	describe('Home / End / PageUp / PageDown keys', () => {
+		it('End jumps to last node and Home jumps back to first', async () => {
+			const onFocusChange = vi.fn();
+			const {stdin} = render(
+				<TreeView data={sampleData} onFocusChange={onFocusChange} />,
+			);
+
+			await delay(50);
+			stdin.write(END);
+			await delay(50);
+			expect(onFocusChange).toHaveBeenLastCalledWith('root-3');
+
+			stdin.write(HOME);
+			await delay(50);
+			expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+		});
+
+		it('PageDown / PageUp move focus by a viewport page', async () => {
+			const onFocusChange = vi.fn();
+			const {stdin} = render(
+				<TreeView
+					data={sampleData}
+					defaultExpanded="all"
+					visibleNodeCount={3}
+					onFocusChange={onFocusChange}
+				/>,
+			);
+
+			await delay(50);
+			// Visible order (all expanded): root-1, child-1-1, leaf-1-1-1,
+			// leaf-1-1-2, ... A page is 3 rows, so PageDown from index 0 -> 3.
+			stdin.write(PAGE_DOWN);
+			await delay(50);
+			expect(onFocusChange).toHaveBeenLastCalledWith('leaf-1-1-2');
+
+			stdin.write(PAGE_UP);
+			await delay(50);
+			expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+		});
+	});
+
+	describe('scroll indicators', () => {
+		it('renders real arrow glyphs, not literal escape text', async () => {
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={sampleData}
+					defaultExpanded="all"
+					visibleNodeCount={3}
+				/>,
+			);
+
+			await delay(50);
+			// Initially only the "below" indicator is shown.
+			let frame = lastFrame();
+			expect(frame).toContain('↓'); // actual down-arrow glyph
+			expect(frame).not.toContain('u2193'); // not the literal escape text
+
+			// Scroll down far enough to reveal the "above" indicator too.
+			stdin.write(ARROW_DOWN);
+			await delay(20);
+			stdin.write(ARROW_DOWN);
+			await delay(20);
+			stdin.write(ARROW_DOWN);
+			await delay(50);
+
+			frame = lastFrame();
+			expect(frame).toContain('↑'); // actual up-arrow glyph
+			expect(frame).not.toContain('u2191'); // not the literal escape text
+		});
+	});
+
+	describe('controlled mode', () => {
+		it('controlled expanded reflects the prop when the parent honors intent', async () => {
+			const onExpandChange = vi.fn();
+			function Wrapper() {
+				const [expanded, setExpanded] = React.useState(
+					new Set<string>(),
+				);
+				return (
+					<TreeView
+						data={sampleData}
+						expanded={expanded}
+						onExpandChange={ids => {
+							onExpandChange(ids);
+							setExpanded(new Set(ids));
+						}}
+					/>
+				);
+			}
+
+			const {lastFrame, stdin} = render(<Wrapper />);
+			await delay(50);
+			expect(lastFrame()).not.toContain('Photos');
+
+			stdin.write(ARROW_RIGHT);
+			await delay(80);
+			expect(onExpandChange).toHaveBeenCalled();
+			expect(lastFrame()).toContain('Photos');
+		});
+
+		it('controlled expanded stays authoritative when the parent ignores intent', async () => {
+			const onExpandChange = vi.fn();
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={sampleData}
+					expanded={new Set<string>()}
+					onExpandChange={onExpandChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_RIGHT);
+			await delay(80);
+			// Intent is reported exactly once (no double-fire / reconcile loop)...
+			expect(onExpandChange).toHaveBeenCalledTimes(1);
+			// ...but the prop remains authoritative, so nothing expands.
+			expect(lastFrame()).not.toContain('Photos');
+		});
+
+		it('controlled selected stays authoritative and reports intent once when ignored', async () => {
+			const onSelectChange = vi.fn();
+			const {stdin} = render(
+				<TreeView
+					data={sampleData}
+					selectionMode="multiple"
+					selected={new Set<string>()}
+					onSelectChange={onSelectChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(SPACE);
+			await delay(80);
+			// Exactly one intent report, no reconcile loop.
+			expect(onSelectChange).toHaveBeenCalledTimes(1);
+			expect(onSelectChange.mock.calls[0]![0].has('root-1')).toBe(true);
+		});
+
+		it('controlled selected reports intent and reflects the prop', async () => {
+			const onSelectChange = vi.fn();
+			function Wrapper() {
+				const [selected, setSelected] = React.useState(
+					new Set<string>(),
+				);
+				return (
+					<TreeView
+						data={sampleData}
+						selectionMode="multiple"
+						selected={selected}
+						onSelectChange={ids => {
+							onSelectChange(ids);
+							setSelected(new Set(ids));
+						}}
+					/>
+				);
+			}
+
+			const {stdin} = render(<Wrapper />);
+			await delay(50);
+
+			stdin.write(SPACE); // select root-1
+			await delay(80);
+			expect(onSelectChange.mock.calls.at(-1)![0].has('root-1')).toBe(
+				true,
+			);
+
+			stdin.write(SPACE); // toggle root-1 back off (prop fed back in)
+			await delay(80);
+			expect(onSelectChange.mock.calls.at(-1)![0].has('root-1')).toBe(
+				false,
+			);
+		});
+
+		it('controlled focusedId stays authoritative and reconciles without a duplicate callback', async () => {
+			const onFocusChange = vi.fn();
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={sampleData}
+					focusedId="root-1"
+					onFocusChange={onFocusChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_DOWN); // intent to focus root-2 (ignored)
+			await delay(80);
+			// One intent report; the reconcile revert is suppressed (no dupe).
+			expect(onFocusChange).toHaveBeenCalledTimes(1);
+			expect(onFocusChange).toHaveBeenCalledWith('root-2');
+
+			// Focus reverted to the controlled root-1, so expanding acts on it.
+			stdin.write(ARROW_RIGHT);
+			await delay(80);
+			expect(lastFrame()).toContain('Photos');
+		});
+
+		it('does not stall onFocusChange when focusedId targets a hidden node', async () => {
+			// Regression: a controlled focusedId that is not visible (inside a
+			// collapsed parent) used to leave the focus-suppress flag stuck
+			// true, permanently swallowing every onFocusChange.
+			const warnSpy = vi
+				.spyOn(console, 'warn')
+				.mockImplementation(() => {});
+			const onFocusChange = vi.fn();
+			const {stdin} = render(
+				<TreeView
+					data={sampleData}
+					focusedId="child-1-1" // hidden: root-1 is collapsed
+					onFocusChange={onFocusChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_DOWN);
+			await delay(80);
+			// The navigation intent is still reported (not swallowed).
+			expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			// And a dev warning was emitted for the un-focusable node.
+			expect(warnSpy).toHaveBeenCalled();
+
+			// A second navigation still fires, proving the flag is not stuck.
+			onFocusChange.mockClear();
+			stdin.write(ARROW_DOWN);
+			await delay(80);
+			expect(onFocusChange).toHaveBeenCalledWith('root-3');
+
+			warnSpy.mockRestore();
+		});
+	});
 });
 
 describe('buildNodeAriaLabel', () => {
@@ -665,4 +904,74 @@ describe('buildNodeAriaLabel', () => {
 		);
 		expect(result).toBe('Projects, item 3 of 4, depth 1, expanded, selected');
 	});
+});
+
+describe('areTreeViewNodePropsEqual (memo comparator)', () => {
+	const node: TreeNode = {id: 'n1', label: 'Node 1'};
+	const nodeState: TreeNodeState = {
+		isFocused: false,
+		isExpanded: false,
+		isSelected: false,
+		depth: 0,
+		hasChildren: false,
+		isLoading: false,
+	};
+	const {styles} = theme;
+	const baseProps = {
+		node,
+		nodeState,
+		selectionMode: 'none' as const,
+		styles,
+		isScreenReaderEnabled: false,
+		siblingPosition: 1,
+		siblingCount: 1,
+	};
+
+	it('treats a fresh nodeState object with identical values as equal', () => {
+		const next = {...baseProps, nodeState: {...nodeState}};
+		expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(true);
+	});
+
+	// One entry per compared prop; each mutates exactly one and expects false.
+	const mutations: Array<{name: string; next: typeof baseProps}> = [
+		{name: 'node', next: {...baseProps, node: {id: 'n1', label: 'Node 1'}}},
+		{name: 'selectionMode', next: {...baseProps, selectionMode: 'single'}},
+		{name: 'styles', next: {...baseProps, styles: {...styles}}},
+		{
+			name: 'isScreenReaderEnabled',
+			next: {...baseProps, isScreenReaderEnabled: true},
+		},
+		{name: 'siblingPosition', next: {...baseProps, siblingPosition: 2}},
+		{name: 'siblingCount', next: {...baseProps, siblingCount: 2}},
+		{
+			name: 'nodeState.isFocused',
+			next: {...baseProps, nodeState: {...nodeState, isFocused: true}},
+		},
+		{
+			name: 'nodeState.isExpanded',
+			next: {...baseProps, nodeState: {...nodeState, isExpanded: true}},
+		},
+		{
+			name: 'nodeState.isSelected',
+			next: {...baseProps, nodeState: {...nodeState, isSelected: true}},
+		},
+		{
+			name: 'nodeState.depth',
+			next: {...baseProps, nodeState: {...nodeState, depth: 1}},
+		},
+		{
+			name: 'nodeState.hasChildren',
+			next: {...baseProps, nodeState: {...nodeState, hasChildren: true}},
+		},
+		{
+			name: 'nodeState.isLoading',
+			next: {...baseProps, nodeState: {...nodeState, isLoading: true}},
+		},
+	];
+
+	for (const {name, next} of mutations) {
+		it(`returns false when ${name} changes`, () => {
+			expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(false);
+		});
+	}
 });

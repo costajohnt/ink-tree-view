@@ -29,13 +29,19 @@ export function useTreeView<T>({
 	onLoadErrorRef.current = onLoadError;
 
 	const triggerLoadRef = useRef(async (nodeId: string) => {
-		if (loadingRef.current.has(nodeId)) return;
+		if (loadingRef.current.has(nodeId)) {
+			return;
+		}
 
 		const currentLoadChildren = loadChildrenRef.current;
-		if (!currentLoadChildren) return;
+		if (!currentLoadChildren) {
+			return;
+		}
 
 		const flat = stateRef.current.nodeMap.get(nodeId);
-		if (!flat || flat.childrenIds.length > 0) return;
+		if (!flat || flat.childrenIds.length > 0) {
+			return;
+		}
 
 		loadingRef.current.add(nodeId);
 		stateRef.current.setLoading(nodeId, true);
@@ -45,10 +51,10 @@ export function useTreeView<T>({
 			stateRef.current.insertChildren(nodeId, children);
 			stateRef.current.expandNode(nodeId);
 		} catch (error: unknown) {
-			const err =
+			const loadError =
 				error instanceof Error ? error : new Error(String(error));
 			stateRef.current.setChildrenError(nodeId);
-			onLoadErrorRef.current?.(nodeId, err);
+			onLoadErrorRef.current?.(nodeId, loadError);
 		} finally {
 			stateRef.current.setLoading(nodeId, false);
 			loadingRef.current.delete(nodeId);
@@ -111,10 +117,10 @@ export function useTreeView<T>({
 			}
 
 			if (key.return) {
-				if (selectionMode !== 'none') {
-					state.select();
-				} else {
+				if (selectionMode === 'none') {
 					state.toggleExpanded();
+				} else {
+					state.select();
 				}
 
 				return;
@@ -130,25 +136,25 @@ export function useTreeView<T>({
 				return;
 			}
 
-			// Home key: input is the raw escape sequence
-			// ESC[H, ESC[1~, or ESCOH
-			if (
-				input === '\u001B[H' ||
-				input === '\u001B[1~' ||
-				input === '\u001BOH'
-			) {
+			// Ink 6 delivers Home/End/PageUp/PageDown as key booleans with an
+			// empty `input`, not as raw escape sequences.
+			if (key.home) {
 				state.focusFirst();
 				return;
 			}
 
-			// End key: ESC[F, ESC[4~, or ESCOF
-			if (
-				input === '\u001B[F' ||
-				input === '\u001B[4~' ||
-				input === '\u001BOF'
-			) {
+			if (key.end) {
 				state.focusLast();
 				return;
+			}
+
+			if (key.pageDown) {
+				state.focusPageDown();
+				return;
+			}
+
+			if (key.pageUp) {
+				state.focusPageUp();
 			}
 		},
 		{isActive: !isDisabled},

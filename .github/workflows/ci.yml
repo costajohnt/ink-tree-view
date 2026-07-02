@@ -22,3 +22,15 @@ jobs:
       - run: npm run build
       - run: npx tsc --noEmit
       - run: npm test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # xo requires Node >=20.19 and is unreliable on older 20.x.
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint

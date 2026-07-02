@@ -1,4 +1,7 @@
-import {useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
+import process from 'node:process';
+import {
+	useCallback, useEffect, useMemo, useReducer, useRef, useState,
+} from 'react';
 import {type TreeNode, type TreeNodeState, type SelectionMode} from '../../types.js';
 import {TreeNodeMap} from '../../tree-node-map.js';
 
@@ -21,6 +24,57 @@ export type State<T> = {
 	loadingIds: Set<string>;
 };
 
+// ─── Set comparison ──────────────────────────────────────────────────────────
+
+function setsEqual(
+	a: ReadonlySet<string>,
+	b: ReadonlySet<string>,
+): boolean {
+	if (a === b) {
+		return true;
+	}
+
+	if (a.size !== b.size) {
+		return false;
+	}
+
+	for (const value of a) {
+		if (!b.has(value)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+// ─── Focus recovery helper ───────────────────────────────────────────────────
+
+/**
+ * When a change hides the focused node, find the nearest ancestor that is
+ * still visible so focus does not get stranded on an invisible node. Falls
+ * back to the first visible node.
+ */
+function recoverFocus<T>(
+	state: State<T>,
+	newVisible: string[],
+	newVisibleSet: ReadonlySet<string>,
+): string | undefined {
+	if (state.focusedId === undefined || newVisibleSet.has(state.focusedId)) {
+		return state.focusedId;
+	}
+
+	let ancestorId = state.nodeMap.get(state.focusedId)?.parentId;
+	while (ancestorId !== undefined) {
+		if (newVisibleSet.has(ancestorId)) {
+			return ancestorId;
+		}
+
+		ancestorId = state.nodeMap.get(ancestorId)?.parentId;
+	}
+
+	return newVisible[0];
+}
+
 // ─── Actions ────────────────────────────────────────────────────────────────
 
 export type Action<T> =
@@ -28,6 +82,11 @@ export type Action<T> =
 	| {type: 'focus-previous'}
 	| {type: 'focus-first'}
 	| {type: 'focus-last'}
+	| {type: 'focus-page-down'}
+	| {type: 'focus-page-up'}
+	| {type: 'set-expanded'; expandedIds: ReadonlySet<string>}
+	| {type: 'set-selected'; selectedIds: ReadonlySet<string>}
+	| {type: 'set-focused'; focusedId: string}
 	| {type: 'expand'}
 	| {type: 'expand-node'; nodeId: string}
 	| {type: 'collapse'}
@@ -47,8 +106,8 @@ export type Action<T> =
 
 function buildVisibleIdIndex(visibleIds: string[]): Map<string, number> {
 	const map = new Map<string, number>();
-	for (let i = 0; i < visibleIds.length; i++) {
-		map.set(visibleIds[i]!, i);
+	for (const [i, visibleId] of visibleIds.entries()) {
+		map.set(visibleId!, i);
 	}
 
 	return map;
@@ -134,9 +193,15 @@ function adjustViewportForNewVisible<T>(
 export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 	switch (action.type) {
 		case 'focus-next': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
-			if (idx < 0 || idx >= state.visibleIds.length - 1) return state;
+			if (idx < 0 || idx >= state.visibleIds.length - 1) {
+				return state;
+			}
+
 			const nextId = state.visibleIds[idx + 1]!;
 			return {
 				...state,
@@ -146,19 +211,28 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-previous': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
-			if (idx <= 0) return state;
-			const prevId = state.visibleIds[idx - 1]!;
+			if (idx <= 0) {
+				return state;
+			}
+
+			const previousId = state.visibleIds[idx - 1]!;
 			return {
 				...state,
-				focusedId: prevId,
+				focusedId: previousId,
 				...adjustViewport(state, idx - 1),
 			};
 		}
 
 		case 'focus-first': {
-			if (state.visibleIds.length === 0) return state;
+			if (state.visibleIds.length === 0) {
+				return state;
+			}
+
 			return {
 				...state,
 				focusedId: state.visibleIds[0],
@@ -171,7 +245,10 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-last': {
-			if (state.visibleIds.length === 0) return state;
+			if (state.visibleIds.length === 0) {
+				return state;
+			}
+
 			const lastIdx = state.visibleIds.length - 1;
 			return {
 				...state,
@@ -180,16 +257,140 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 			};
 		}
 
+		case 'focus-page-down': {
+			if (!state.focusedId) {
+				return state;
+			}
+
+			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
+			if (idx < 0) {
+				return state;
+			}
+
+			const pageSize = Math.max(
+				1,
+				state.viewportToIndex - state.viewportFromIndex,
+			);
+			const targetIdx = Math.min(
+				state.visibleIds.length - 1,
+				idx + pageSize,
+			);
+			if (targetIdx === idx) {
+				return state;
+			}
+
+			return {
+				...state,
+				focusedId: state.visibleIds[targetIdx],
+				...adjustViewport(state, targetIdx),
+			};
+		}
+
+		case 'focus-page-up': {
+			if (!state.focusedId) {
+				return state;
+			}
+
+			const idx = state.visibleIdIndex.get(state.focusedId) ?? -1;
+			if (idx < 0) {
+				return state;
+			}
+
+			const pageSize = Math.max(
+				1,
+				state.viewportToIndex - state.viewportFromIndex,
+			);
+			const targetIdx = Math.max(0, idx - pageSize);
+			if (targetIdx === idx) {
+				return state;
+			}
+
+			return {
+				...state,
+				focusedId: state.visibleIds[targetIdx],
+				...adjustViewport(state, targetIdx),
+			};
+		}
+
+		case 'set-focused': {
+			const idx = state.visibleIdIndex.get(action.focusedId) ?? -1;
+			if (idx < 0) {
+				return state;
+			}
+
+			if (action.focusedId === state.focusedId) {
+				return state;
+			}
+
+			return {
+				...state,
+				focusedId: action.focusedId,
+				...adjustViewport(state, idx),
+			};
+		}
+
+		case 'set-expanded': {
+			if (setsEqual(action.expandedIds, state.expandedIds)) {
+				return state;
+			}
+
+			const newExpanded = new Set(action.expandedIds);
+			const newVisible = state.nodeMap.getVisibleIds(newExpanded);
+			const newVisibleSet = new Set(newVisible);
+			// Collapse-focus invariant: if this expanded-set change hid the
+			// focused node, move focus to the nearest still-visible ancestor
+			// so navigation does not freeze on an invisible node.
+			const newFocusedId = recoverFocus(state, newVisible, newVisibleSet);
+			return {
+				...state,
+				focusedId: newFocusedId,
+				// Mark previous === current so the intent callback does not
+				// re-fire for a controlled-prop reconciliation.
+				previousExpandedIds: newExpanded,
+				expandedIds: newExpanded,
+				visibleIds: newVisible,
+				visibleIdIndex: buildVisibleIdIndex(newVisible),
+				...adjustViewportForNewVisible(
+					{...state, focusedId: newFocusedId, visibleIds: newVisible},
+					newVisible,
+				),
+			};
+		}
+
+		case 'set-selected': {
+			if (setsEqual(action.selectedIds, state.selectedIds)) {
+				return state;
+			}
+
+			const newSelected = new Set(action.selectedIds);
+			return {
+				...state,
+				// Mark previous === current so the intent callback does not
+				// re-fire for a controlled-prop reconciliation.
+				previousSelectedIds: newSelected,
+				selectedIds: newSelected,
+			};
+		}
+
 		case 'expand': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			return reducer(state, {type: 'expand-node', nodeId: state.focusedId});
 		}
 
 		case 'expand-node': {
 			const {nodeId} = action;
 			const flat = state.nodeMap.get(nodeId);
-			if (!flat || !flat.hasChildren) return state;
-			if (state.expandedIds.has(nodeId)) return state;
+			if (!flat?.hasChildren) {
+				return state;
+			}
+
+			if (state.expandedIds.has(nodeId)) {
+				return state;
+			}
+
 			const newExpanded = new Set(state.expandedIds);
 			newExpanded.add(nodeId);
 			const newVisible = state.nodeMap.getVisibleIds(newExpanded);
@@ -207,13 +408,19 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'collapse': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			return reducer(state, {type: 'collapse-node', nodeId: state.focusedId});
 		}
 
 		case 'collapse-node': {
 			const {nodeId} = action;
-			if (!state.expandedIds.has(nodeId)) return state;
+			if (!state.expandedIds.has(nodeId)) {
+				return state;
+			}
+
 			const newExpanded = new Set(state.expandedIds);
 			newExpanded.delete(nodeId);
 			const newVisible = state.nodeMap.getVisibleIds(newExpanded);
@@ -244,7 +451,10 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'toggle-expanded': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			if (state.expandedIds.has(state.focusedId)) {
 				return reducer(state, {type: 'collapse'});
 			}
@@ -255,7 +465,9 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		case 'expand-all': {
 			const allParentIds = new Set<string>();
 			for (const [id, flat] of state.nodeMap.entries()) {
-				if (flat.hasChildren) allParentIds.add(id);
+				if (flat.hasChildren) {
+					allParentIds.add(id);
+				}
 			}
 
 			const newVisible = state.nodeMap.getVisibleIds(allParentIds);
@@ -291,8 +503,13 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'select': {
-			if (!state.focusedId) return state;
-			if (state.selectionMode === 'none') return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
+			if (state.selectionMode === 'none') {
+				return state;
+			}
 
 			if (state.selectionMode === 'single') {
 				const newSelected = new Set<string>([state.focusedId]);
@@ -319,11 +536,20 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-parent': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			const flat = state.nodeMap.get(state.focusedId);
-			if (!flat?.parentId) return state;
+			if (!flat?.parentId) {
+				return state;
+			}
+
 			const parentIdx = state.visibleIdIndex.get(flat.parentId) ?? -1;
-			if (parentIdx < 0) return state;
+			if (parentIdx < 0) {
+				return state;
+			}
+
 			return {
 				...state,
 				focusedId: flat.parentId,
@@ -332,13 +558,25 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-first-child': {
-			if (!state.focusedId) return state;
+			if (!state.focusedId) {
+				return state;
+			}
+
 			const flat = state.nodeMap.get(state.focusedId);
-			if (!flat || flat.childrenIds.length === 0) return state;
-			if (!state.expandedIds.has(state.focusedId)) return state;
+			if (!flat || flat.childrenIds.length === 0) {
+				return state;
+			}
+
+			if (!state.expandedIds.has(state.focusedId)) {
+				return state;
+			}
+
 			const firstChildId = flat.childrenIds[0]!;
 			const childIdx = state.visibleIdIndex.get(firstChildId) ?? -1;
-			if (childIdx < 0) return state;
+			if (childIdx < 0) {
+				return state;
+			}
+
 			return {
 				...state,
 				focusedId: firstChildId,
@@ -365,7 +603,10 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 
 		case 'insert-children': {
 			const parentFlat = state.nodeMap.get(action.parentId);
-			if (!parentFlat) return state;
+			if (!parentFlat) {
+				return state;
+			}
+
 			const newNodeMap = state.nodeMap.withChildren(
 				action.parentId,
 				action.children,
@@ -397,6 +638,8 @@ export type CreateDefaultStateProps<T> = {
 	defaultExpanded?: ReadonlySet<string> | 'all';
 	defaultSelected?: ReadonlySet<string>;
 	visibleNodeCount: number;
+	/** Initial focused node (controlled `focusedId`); falls back to first node. */
+	focusedId?: string;
 };
 
 export function createDefaultState<T>({
@@ -405,6 +648,7 @@ export function createDefaultState<T>({
 	defaultExpanded,
 	defaultSelected,
 	visibleNodeCount,
+	focusedId,
 }: CreateDefaultStateProps<T>): State<T> {
 	const nodeMap = new TreeNodeMap(data);
 
@@ -412,7 +656,9 @@ export function createDefaultState<T>({
 	if (defaultExpanded === 'all') {
 		expandedIds = new Set<string>();
 		for (const [id, flat] of nodeMap.entries()) {
-			if (flat.hasChildren) expandedIds.add(id);
+			if (flat.hasChildren) {
+				expandedIds.add(id);
+			}
 		}
 	} else if (defaultExpanded) {
 		expandedIds = new Set(defaultExpanded);
@@ -428,12 +674,17 @@ export function createDefaultState<T>({
 
 	const nodeCount = Math.min(visibleNodeCount, visibleIds.length);
 
+	const initialFocusedId =
+		focusedId !== undefined && visibleIds.includes(focusedId)
+			? focusedId
+			: visibleIds[0];
+
 	return {
 		nodeMap,
 		expandedIds,
 		visibleIds,
 		visibleIdIndex: buildVisibleIdIndex(visibleIds),
-		focusedId: visibleIds[0],
+		focusedId: initialFocusedId,
 		visibleNodeCount,
 		viewportFromIndex: 0,
 		viewportToIndex: nodeCount,
@@ -452,6 +703,12 @@ export type UseTreeViewStateProps<T = Record<string, unknown>> = {
 	selectionMode?: SelectionMode;
 	defaultExpanded?: ReadonlySet<string> | 'all';
 	defaultSelected?: ReadonlySet<string>;
+	/** Controlled expanded set. When provided, the tree is controlled. */
+	expanded?: ReadonlySet<string>;
+	/** Controlled selected set. When provided, selection is controlled. */
+	selected?: ReadonlySet<string>;
+	/** Controlled focused node ID. When provided, focus is controlled. */
+	focusedId?: string;
 	visibleNodeCount?: number;
 	onFocusChange?: (nodeId: string) => void;
 	onExpandChange?: (expandedIds: ReadonlySet<string>) => void;
@@ -474,6 +731,8 @@ export type TreeViewState<T = Record<string, unknown>> = {
 	focusPrevious: () => void;
 	focusFirst: () => void;
 	focusLast: () => void;
+	focusPageDown: () => void;
+	focusPageUp: () => void;
 	expand: () => void;
 	expandNode: (nodeId: string) => void;
 	collapse: () => void;
@@ -499,14 +758,28 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	selectionMode = 'none',
 	defaultExpanded,
 	defaultSelected,
+	expanded,
+	selected,
+	focusedId,
 	visibleNodeCount = Infinity,
 	onFocusChange,
 	onExpandChange,
 	onSelectChange,
 }: UseTreeViewStateProps<T>): TreeViewState<T> {
+	// Controlled props win over their uncontrolled defaults for initial state.
+	const initialExpanded = expanded ?? defaultExpanded;
+	const initialSelected = selected ?? defaultSelected;
+
 	const [state, dispatch] = useReducer(
 		reducer<T>,
-		{data, selectionMode, defaultExpanded, defaultSelected, visibleNodeCount},
+		{
+			data,
+			selectionMode,
+			defaultExpanded: initialExpanded,
+			defaultSelected: initialSelected,
+			visibleNodeCount,
+			focusedId,
+		},
 		createDefaultState<T>,
 	);
 
@@ -518,13 +791,22 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			state: createDefaultState({
 				data,
 				selectionMode,
-				defaultExpanded,
-				defaultSelected,
+				defaultExpanded: initialExpanded,
+				defaultSelected: initialSelected,
 				visibleNodeCount,
+				focusedId,
 			}),
 		});
 		setLastData(data);
 	}
+
+	// When a focus change originates from a controlled-prop reconciliation
+	// (not user intent), skip firing onFocusChange for it.
+	const suppressFocusReportRef = useRef(false);
+
+	// Remember the last controlled focusedId we warned about (hidden/unknown
+	// node) so the dev warning fires at most once per distinct value.
+	const warnedFocusRef = useRef<string | undefined>(undefined);
 
 	// Store callbacks in refs to avoid infinite loops when consumers
 	// pass inline functions (new reference every render)
@@ -543,7 +825,14 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			return;
 		}
 
-		if (state.focusedId) onFocusChangeRef.current?.(state.focusedId);
+		if (suppressFocusReportRef.current) {
+			suppressFocusReportRef.current = false;
+			return;
+		}
+
+		if (state.focusedId) {
+			onFocusChangeRef.current?.(state.focusedId);
+		}
 	}, [state.focusedId]);
 
 	useEffect(() => {
@@ -558,25 +847,74 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		}
 	}, [state.selectedIds, state.previousSelectedIds]);
 
+	// ── Controlled-prop reconciliation ──
+	// When a controlled prop is provided, keep internal state in sync with it.
+	// User actions still update state optimistically and report intent via the
+	// callbacks above; if the parent does not accept the intent (prop unchanged)
+	// these effects revert internal state so the prop stays authoritative.
+	useEffect(() => {
+		if (expanded !== undefined && !setsEqual(expanded, state.expandedIds)) {
+			dispatch({type: 'set-expanded', expandedIds: expanded});
+		}
+	}, [expanded, state.expandedIds]);
+
+	useEffect(() => {
+		if (selected !== undefined && !setsEqual(selected, state.selectedIds)) {
+			dispatch({type: 'set-selected', selectedIds: selected});
+		}
+	}, [selected, state.selectedIds]);
+
+	useEffect(() => {
+		if (focusedId === undefined || focusedId === state.focusedId) {
+			return;
+		}
+
+		// Only reconcile toward a focusedId that is actually visible. If we
+		// armed the suppress flag and dispatched for a hidden/unknown node,
+		// set-focused would no-op, state.focusedId would never change, and the
+		// flag would stay stuck true — permanently swallowing every subsequent
+		// onFocusChange.
+		if (state.visibleIdIndex.has(focusedId)) {
+			suppressFocusReportRef.current = true;
+			dispatch({type: 'set-focused', focusedId});
+			return;
+		}
+
+		// Controlled focusedId points at a node that cannot be focused. Warn
+		// once (dev only) rather than silently ignoring it.
+		if (
+			process.env['NODE_ENV'] !== 'production' &&
+			warnedFocusRef.current !== focusedId
+		) {
+			warnedFocusRef.current = focusedId;
+			const exists = state.nodeMap.get(focusedId) !== undefined;
+			console.warn(
+				`ink-tree-view: controlled focusedId "${focusedId}" ${
+					exists
+						? 'is not currently visible (it is inside a collapsed node)'
+						: 'is not a node in the tree'
+				}; the focus prop is ignored until the node becomes visible.`,
+			);
+		}
+	}, [focusedId, state.focusedId, state.visibleIdIndex, state.nodeMap]);
+
 	// Compute viewportNodes from state
-	const viewportNodes = useMemo(() => {
-		return state.visibleIds
-			.slice(state.viewportFromIndex, state.viewportToIndex)
-			.map(id => {
-				const flat = state.nodeMap.get(id)!;
-				return {
-					node: flat.node,
-					state: {
-						isFocused: id === state.focusedId,
-						isExpanded: state.expandedIds.has(id),
-						isSelected: state.selectedIds.has(id),
-						depth: flat.depth,
-						hasChildren: flat.hasChildren,
-						isLoading: state.loadingIds.has(id),
-					} satisfies TreeNodeState,
-				};
-			});
-	}, [
+	const viewportNodes = useMemo(() => state.visibleIds
+		.slice(state.viewportFromIndex, state.viewportToIndex)
+		.map(id => {
+			const flat = state.nodeMap.get(id)!;
+			return {
+				node: flat.node,
+				state: {
+					isFocused: id === state.focusedId,
+					isExpanded: state.expandedIds.has(id),
+					isSelected: state.selectedIds.has(id),
+					depth: flat.depth,
+					hasChildren: flat.hasChildren,
+					isLoading: state.loadingIds.has(id),
+				} satisfies TreeNodeState,
+			};
+		}), [
 		state.visibleIds,
 		state.viewportFromIndex,
 		state.viewportToIndex,
@@ -601,6 +939,14 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	);
 	const focusLast = useCallback(
 		() => dispatch({type: 'focus-last'}),
+		[],
+	);
+	const focusPageDown = useCallback(
+		() => dispatch({type: 'focus-page-down'}),
+		[],
+	);
+	const focusPageUp = useCallback(
+		() => dispatch({type: 'focus-page-up'}),
 		[],
 	);
 	const expand = useCallback(() => dispatch({type: 'expand'}), []);
@@ -669,6 +1015,8 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		focusPrevious,
 		focusFirst,
 		focusLast,
+		focusPageDown,
+		focusPageUp,
 		expand,
 		expandNode,
 		collapse,

@@ -547,4 +547,137 @@ describe('reducer + createDefaultState', () => {
 			expect(state.expandedIds.size).toBe(0);
 		});
 	});
+
+	// Visible order when everything is expanded:
+	// root-1, child-1-1, leaf-1-1-1, leaf-1-1-2, child-1-2, leaf-1-2-1,
+	// root-2, child-2-1, root-3 (9 nodes).
+	describe('focus-page-down / focus-page-up', () => {
+		it('pages down and up by the viewport size', () => {
+			let state = makeState({
+				defaultExpanded: 'all',
+				visibleNodeCount: 3,
+			});
+			state = reducer(state, {type: 'focus-page-down'});
+			expect(state.focusedId).toBe('leaf-1-1-2'); // index 0 -> 3
+			state = reducer(state, {type: 'focus-page-up'});
+			expect(state.focusedId).toBe('root-1'); // back to index 0
+		});
+
+		it('clamps and no-ops (same ref) when a page overshoots the end', () => {
+			let state = makeState({
+				defaultExpanded: 'all',
+				visibleNodeCount: 3,
+			});
+			state = reducer(state, {type: 'focus-last'}); // root-3, index 8
+			const before = state;
+			const after = reducer(before, {type: 'focus-page-down'});
+			expect(after).toBe(before);
+		});
+
+		it('with visibleNodeCount Infinity, jumps to last then first', () => {
+			let state = makeState(); // Infinity, collapsed -> 3 visible roots
+			state = reducer(state, {type: 'focus-page-down'});
+			expect(state.focusedId).toBe('root-3');
+			state = reducer(state, {type: 'focus-page-up'});
+			expect(state.focusedId).toBe('root-1');
+		});
+	});
+
+	describe('set-focused', () => {
+		it('focuses a visible node', () => {
+			let state = makeState({defaultExpanded: new Set(['root-1'])});
+			state = reducer(state, {
+				type: 'set-focused',
+				focusedId: 'child-1-2',
+			});
+			expect(state.focusedId).toBe('child-1-2');
+		});
+
+		it('is a no-op (same ref) for a node not in visibleIds', () => {
+			const state = makeState(); // child-1-1 is hidden (root-1 collapsed)
+			const after = reducer(state, {
+				type: 'set-focused',
+				focusedId: 'child-1-1',
+			});
+			expect(after).toBe(state);
+		});
+
+		it('is a no-op (same ref) for an unknown node', () => {
+			const state = makeState();
+			const after = reducer(state, {
+				type: 'set-focused',
+				focusedId: 'does-not-exist',
+			});
+			expect(after).toBe(state);
+		});
+	});
+
+	describe('set-expanded', () => {
+		it('short-circuits (same ref) when the set is unchanged', () => {
+			const state = makeState({defaultExpanded: new Set(['root-1'])});
+			const after = reducer(state, {
+				type: 'set-expanded',
+				expandedIds: new Set(['root-1']),
+			});
+			expect(after).toBe(state);
+		});
+
+		it('replaces the expanded set and recomputes visibility', () => {
+			let state = makeState();
+			state = reducer(state, {
+				type: 'set-expanded',
+				expandedIds: new Set(['root-1']),
+			});
+			expect(state.expandedIds.has('root-1')).toBe(true);
+			expect(state.visibleIds).toContain('child-1-1');
+			// previous === current so the intent callback does not re-fire
+			expect(state.expandedIds).toBe(state.previousExpandedIds);
+		});
+
+		it('recovers focus to the nearest visible ancestor when a collapse hides it', () => {
+			let state = makeState({
+				defaultExpanded: new Set(['root-1', 'child-1-1']),
+			});
+			state = reducer(state, {type: 'focus-next'}); // child-1-1
+			state = reducer(state, {type: 'focus-next'}); // leaf-1-1-1
+			expect(state.focusedId).toBe('leaf-1-1-1');
+
+			// Controlled-style collapse of the focused node's parent.
+			state = reducer(state, {
+				type: 'set-expanded',
+				expandedIds: new Set(['root-1']),
+			});
+			expect(state.visibleIds).not.toContain('leaf-1-1-1');
+			expect(state.focusedId).toBe('child-1-1'); // nearest visible ancestor
+
+			// Navigation still works (was frozen before the fix).
+			const moved = reducer(state, {type: 'focus-next'});
+			expect(moved.focusedId).toBe('child-1-2');
+		});
+	});
+
+	describe('set-selected', () => {
+		it('short-circuits (same ref) when the set is unchanged', () => {
+			const state = makeState({
+				selectionMode: 'multiple',
+				defaultSelected: new Set(['root-1']),
+			});
+			const after = reducer(state, {
+				type: 'set-selected',
+				selectedIds: new Set(['root-1']),
+			});
+			expect(after).toBe(state);
+		});
+
+		it('replaces the selected set without re-firing the callback', () => {
+			let state = makeState({selectionMode: 'multiple'});
+			state = reducer(state, {
+				type: 'set-selected',
+				selectedIds: new Set(['root-2']),
+			});
+			expect(state.selectedIds.has('root-2')).toBe(true);
+			// previous === current so the intent callback does not re-fire
+			expect(state.selectedIds).toBe(state.previousSelectedIds);
+		});
+	});
 });

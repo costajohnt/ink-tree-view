@@ -10,6 +10,9 @@ export function TreeView<T = Record<string, unknown>>({
 	selectionMode = 'none',
 	defaultExpanded,
 	defaultSelected,
+	expanded,
+	selected,
+	focusedId,
 	visibleNodeCount,
 	renderNode,
 	loadChildren,
@@ -25,6 +28,9 @@ export function TreeView<T = Record<string, unknown>>({
 		selectionMode,
 		defaultExpanded,
 		defaultSelected,
+		expanded,
+		selected,
+		focusedId,
 		visibleNodeCount,
 		onFocusChange,
 		onExpandChange,
@@ -39,7 +45,7 @@ export function TreeView<T = Record<string, unknown>>({
 		onLoadError,
 	});
 
-	const styles = theme.styles;
+	const {styles} = theme;
 	const isScreenReaderEnabled = useIsScreenReaderEnabled();
 
 	return (
@@ -49,14 +55,12 @@ export function TreeView<T = Record<string, unknown>>({
 			{...styles.container()}
 			aria-role="list"
 		>
-			{isScreenReaderEnabled && (
-				<Text aria-label={ariaLabel}>{''}</Text>
-			)}
-			{state.hasScrollUp && (
-				<Text dimColor aria-label={`${state.viewportFromIndex} more items above`}>
-					{'  '}\u2191 {state.viewportFromIndex} more above
+			{isScreenReaderEnabled ? <Text aria-label={ariaLabel} /> : null}
+			{state.hasScrollUp
+				? <Text dimColor aria-label={`${state.viewportFromIndex} more items above`}>
+					{'  \u2191 '}{state.viewportFromIndex} more above
 				</Text>
-			)}
+				: null}
 			{state.viewportNodes.map(({node, state: nodeState}) => {
 				const flatNode = state.nodeMap.get(node.id);
 				const siblingPosition = flatNode ? flatNode.siblingIndex + 1 : 1;
@@ -73,9 +77,7 @@ export function TreeView<T = Record<string, unknown>>({
 							aria-role="listitem"
 							aria-state={buildNodeAriaState(nodeState, selectionMode)}
 						>
-							{nodeAriaLabel && (
-								<Text aria-label={nodeAriaLabel}>{''}</Text>
-							)}
+							{nodeAriaLabel ? <Text aria-label={nodeAriaLabel} /> : null}
 							{renderNode({node, state: nodeState})}
 						</Box>
 					);
@@ -94,12 +96,11 @@ export function TreeView<T = Record<string, unknown>>({
 					/>
 				);
 			})}
-			{state.hasScrollDown && (
-				<Text dimColor aria-label={`${state.visibleCount - state.viewportToIndex} more items below`}>
-					{'  '}\u2193 {state.visibleCount - state.viewportToIndex}{' '}
-					more below
+			{state.hasScrollDown
+				? <Text dimColor aria-label={`${state.visibleCount - state.viewportToIndex} more items below`}>
+					{'  \u2193 '}{state.visibleCount - state.viewportToIndex}{' more below'}
 				</Text>
-			)}
+				: null}
 		</Box>
 	);
 }
