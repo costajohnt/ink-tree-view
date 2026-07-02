@@ -12,6 +12,12 @@ jobs:
     strategy:
       matrix:
         node-version: [20, 22]
+        ink-version: [6]
+        include:
+          # Compatibility leg: verify the advertised `ink >=6` peer range
+          # against the current ink major.
+          - node-version: 22
+            ink-version: 7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +25,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - run: npm install --no-save ink@^7
+        if: matrix.ink-version == 7
       - run: npm run build
       - run: npx tsc --noEmit
       - run: npm test
