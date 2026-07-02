@@ -701,10 +701,29 @@ describe('TreeView', () => {
 			await delay(50);
 			stdin.write(ARROW_RIGHT);
 			await delay(80);
-			// Intent is reported...
-			expect(onExpandChange).toHaveBeenCalled();
+			// Intent is reported exactly once (no double-fire / reconcile loop)...
+			expect(onExpandChange).toHaveBeenCalledTimes(1);
 			// ...but the prop remains authoritative, so nothing expands.
 			expect(lastFrame()).not.toContain('Photos');
+		});
+
+		it('controlled selected stays authoritative and reports intent once when ignored', async () => {
+			const onSelectChange = vi.fn();
+			const {stdin} = render(
+				<TreeView
+					data={sampleData}
+					selectionMode="multiple"
+					selected={new Set<string>()}
+					onSelectChange={onSelectChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(SPACE);
+			await delay(80);
+			// Exactly one intent report, no reconcile loop.
+			expect(onSelectChange).toHaveBeenCalledTimes(1);
+			expect(onSelectChange.mock.calls[0]![0].has('root-1')).toBe(true);
 		});
 
 		it('controlled selected reports intent and reflects the prop', async () => {
@@ -742,7 +761,7 @@ describe('TreeView', () => {
 			);
 		});
 
-		it('controlled focusedId stays authoritative when the parent ignores intent', async () => {
+		it('controlled focusedId stays authoritative and reconciles without a duplicate callback', async () => {
 			const onFocusChange = vi.fn();
 			const {lastFrame, stdin} = render(
 				<TreeView
@@ -755,12 +774,47 @@ describe('TreeView', () => {
 			await delay(50);
 			stdin.write(ARROW_DOWN); // intent to focus root-2 (ignored)
 			await delay(80);
+			// One intent report; the reconcile revert is suppressed (no dupe).
+			expect(onFocusChange).toHaveBeenCalledTimes(1);
 			expect(onFocusChange).toHaveBeenCalledWith('root-2');
 
 			// Focus reverted to the controlled root-1, so expanding acts on it.
 			stdin.write(ARROW_RIGHT);
 			await delay(80);
 			expect(lastFrame()).toContain('Photos');
+		});
+
+		it('does not stall onFocusChange when focusedId targets a hidden node', async () => {
+			// Regression: a controlled focusedId that is not visible (inside a
+			// collapsed parent) used to leave the focus-suppress flag stuck
+			// true, permanently swallowing every onFocusChange.
+			const warnSpy = vi
+				.spyOn(console, 'warn')
+				.mockImplementation(() => {});
+			const onFocusChange = vi.fn();
+			const {stdin} = render(
+				<TreeView
+					data={sampleData}
+					focusedId="child-1-1" // hidden: root-1 is collapsed
+					onFocusChange={onFocusChange}
+				/>,
+			);
+
+			await delay(50);
+			stdin.write(ARROW_DOWN);
+			await delay(80);
+			// The navigation intent is still reported (not swallowed).
+			expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			// And a dev warning was emitted for the un-focusable node.
+			expect(warnSpy).toHaveBeenCalled();
+
+			// A second navigation still fires, proving the flag is not stuck.
+			onFocusChange.mockClear();
+			stdin.write(ARROW_DOWN);
+			await delay(80);
+			expect(onFocusChange).toHaveBeenCalledWith('root-3');
+
+			warnSpy.mockRestore();
 		});
 	});
 });
@@ -878,21 +932,46 @@ describe('areTreeViewNodePropsEqual (memo comparator)', () => {
 		expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(true);
 	});
 
-	it('detects a changed nodeState primitive', () => {
-		const next = {
-			...baseProps,
-			nodeState: {...nodeState, isFocused: true},
-		};
-		expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(false);
-	});
+	// One entry per compared prop; each mutates exactly one and expects false.
+	const mutations: Array<{name: string; next: typeof baseProps}> = [
+		{name: 'node', next: {...baseProps, node: {id: 'n1', label: 'Node 1'}}},
+		{name: 'selectionMode', next: {...baseProps, selectionMode: 'single'}},
+		{name: 'styles', next: {...baseProps, styles: {...styles}}},
+		{
+			name: 'isScreenReaderEnabled',
+			next: {...baseProps, isScreenReaderEnabled: true},
+		},
+		{name: 'siblingPosition', next: {...baseProps, siblingPosition: 2}},
+		{name: 'siblingCount', next: {...baseProps, siblingCount: 2}},
+		{
+			name: 'nodeState.isFocused',
+			next: {...baseProps, nodeState: {...nodeState, isFocused: true}},
+		},
+		{
+			name: 'nodeState.isExpanded',
+			next: {...baseProps, nodeState: {...nodeState, isExpanded: true}},
+		},
+		{
+			name: 'nodeState.isSelected',
+			next: {...baseProps, nodeState: {...nodeState, isSelected: true}},
+		},
+		{
+			name: 'nodeState.depth',
+			next: {...baseProps, nodeState: {...nodeState, depth: 1}},
+		},
+		{
+			name: 'nodeState.hasChildren',
+			next: {...baseProps, nodeState: {...nodeState, hasChildren: true}},
+		},
+		{
+			name: 'nodeState.isLoading',
+			next: {...baseProps, nodeState: {...nodeState, isLoading: true}},
+		},
+	];
 
-	it('detects a changed sibling position', () => {
-		const next = {...baseProps, siblingPosition: 2};
-		expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(false);
-	});
-
-	it('detects a changed node reference', () => {
-		const next = {...baseProps, node: {id: 'n1', label: 'Node 1'}};
-		expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(false);
-	});
+	for (const {name, next} of mutations) {
+		it(`returns false when ${name} changes`, () => {
+			expect(areTreeViewNodePropsEqual(baseProps, next)).toBe(false);
+		});
+	}
 });
