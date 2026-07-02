@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@sindresorhus/tsconfig": "^5.0.0",
+    "@types/node": "^20.19.43",
     "@types/react": "^19.2.14",
     "delay": "^6.0.0",
     "eslint-plugin-react": "^7.37.5",

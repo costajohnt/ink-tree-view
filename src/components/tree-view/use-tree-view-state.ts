@@ -1,3 +1,4 @@
+import process from 'node:process';
 import {
 	useCallback, useEffect, useMemo, useReducer, useRef, useState,
 } from 'react';
@@ -44,6 +45,34 @@ function setsEqual(
 	}
 
 	return true;
+}
+
+// ─── Focus recovery helper ───────────────────────────────────────────────────
+
+/**
+ * When a change hides the focused node, find the nearest ancestor that is
+ * still visible so focus does not get stranded on an invisible node. Falls
+ * back to the first visible node.
+ */
+function recoverFocus<T>(
+	state: State<T>,
+	newVisible: string[],
+	newVisibleSet: ReadonlySet<string>,
+): string | undefined {
+	if (state.focusedId === undefined || newVisibleSet.has(state.focusedId)) {
+		return state.focusedId;
+	}
+
+	let ancestorId = state.nodeMap.get(state.focusedId)?.parentId;
+	while (ancestorId !== undefined) {
+		if (newVisibleSet.has(ancestorId)) {
+			return ancestorId;
+		}
+
+		ancestorId = state.nodeMap.get(ancestorId)?.parentId;
+	}
+
+	return newVisible[0];
 }
 
 // ─── Actions ────────────────────────────────────────────────────────────────
@@ -307,8 +336,14 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 
 			const newExpanded = new Set(action.expandedIds);
 			const newVisible = state.nodeMap.getVisibleIds(newExpanded);
+			const newVisibleSet = new Set(newVisible);
+			// Collapse-focus invariant: if this expanded-set change hid the
+			// focused node, move focus to the nearest still-visible ancestor
+			// so navigation does not freeze on an invisible node.
+			const newFocusedId = recoverFocus(state, newVisible, newVisibleSet);
 			return {
 				...state,
+				focusedId: newFocusedId,
 				// Mark previous === current so the intent callback does not
 				// re-fire for a controlled-prop reconciliation.
 				previousExpandedIds: newExpanded,
@@ -316,7 +351,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				visibleIds: newVisible,
 				visibleIdIndex: buildVisibleIdIndex(newVisible),
 				...adjustViewportForNewVisible(
-					{...state, visibleIds: newVisible},
+					{...state, focusedId: newFocusedId, visibleIds: newVisible},
 					newVisible,
 				),
 			};
@@ -769,6 +804,10 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	// (not user intent), skip firing onFocusChange for it.
 	const suppressFocusReportRef = useRef(false);
 
+	// Remember the last controlled focusedId we warned about (hidden/unknown
+	// node) so the dev warning fires at most once per distinct value.
+	const warnedFocusRef = useRef<string | undefined>(undefined);
+
 	// Store callbacks in refs to avoid infinite loops when consumers
 	// pass inline functions (new reference every render)
 	const onFocusChangeRef = useRef(onFocusChange);
@@ -826,11 +865,38 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	}, [selected, state.selectedIds]);
 
 	useEffect(() => {
-		if (focusedId !== undefined && focusedId !== state.focusedId) {
+		if (focusedId === undefined || focusedId === state.focusedId) {
+			return;
+		}
+
+		// Only reconcile toward a focusedId that is actually visible. If we
+		// armed the suppress flag and dispatched for a hidden/unknown node,
+		// set-focused would no-op, state.focusedId would never change, and the
+		// flag would stay stuck true — permanently swallowing every subsequent
+		// onFocusChange.
+		if (state.visibleIdIndex.has(focusedId)) {
 			suppressFocusReportRef.current = true;
 			dispatch({type: 'set-focused', focusedId});
+			return;
 		}
-	}, [focusedId, state.focusedId]);
+
+		// Controlled focusedId points at a node that cannot be focused. Warn
+		// once (dev only) rather than silently ignoring it.
+		if (
+			process.env['NODE_ENV'] !== 'production' &&
+			warnedFocusRef.current !== focusedId
+		) {
+			warnedFocusRef.current = focusedId;
+			const exists = state.nodeMap.get(focusedId) !== undefined;
+			console.warn(
+				`ink-tree-view: controlled focusedId "${focusedId}" ${
+					exists
+						? 'is not currently visible (it is inside a collapsed node)'
+						: 'is not a node in the tree'
+				}; the focus prop is ignored until the node becomes visible.`,
+			);
+		}
+	}, [focusedId, state.focusedId, state.visibleIdIndex, state.nodeMap]);
 
 	// Compute viewportNodes from state
 	const viewportNodes = useMemo(() => state.visibleIds
