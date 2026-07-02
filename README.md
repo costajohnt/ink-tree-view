@@ -13,7 +13,8 @@ A tree view component for [Ink](https://github.com/vadimdemedes/ink) (React for 
 ## Features
 
 - Hierarchical data display with expand/collapse
-- Full keyboard navigation (arrows, Home/End, Enter, Space)
+- Full keyboard navigation (arrows, Home/End, PageUp/PageDown, Enter, Space)
+- Controlled or uncontrolled expansion, selection, and focus
 - Selection modes: none, single, and multiple (with checkboxes)
 - Custom node rendering via `renderNode` prop
 - Virtual scrolling for large trees (`visibleNodeCount`)
@@ -28,7 +29,7 @@ A tree view component for [Ink](https://github.com/vadimdemedes/ink) (React for 
 npm install ink-tree-view
 ```
 
-Peer dependencies: `ink` (>=5.0.0), `react` (>=18.0.0)
+Peer dependencies: `ink` (>=6.0.0), `react` (>=19.0.0). Requires Node.js >=20.
 
 ## Quick Start
 
@@ -100,9 +101,12 @@ const data: TreeNode<FileInfo>[] = [
 |------|------|---------|-------------|
 | `data` | `TreeNode<T>[]` | *required* | Array of root-level tree nodes. |
 | `selectionMode` | `'none' \| 'single' \| 'multiple'` | `'none'` | Selection behavior. `'single'` allows one selected node; `'multiple'` shows checkboxes. |
-| `defaultExpanded` | `ReadonlySet<string> \| 'all'` | `undefined` | Node IDs expanded on mount, or `'all'` to expand everything. |
-| `defaultSelected` | `ReadonlySet<string>` | `undefined` | Node IDs selected on mount (ignored in `'none'` mode). |
-| `visibleNodeCount` | `number` | `Infinity` | Max visible rows. Enables virtual scrolling when finite. |
+| `defaultExpanded` | `ReadonlySet<string> \| 'all'` | `undefined` | Node IDs expanded on mount (uncontrolled), or `'all'` to expand everything. |
+| `defaultSelected` | `ReadonlySet<string>` | `undefined` | Node IDs selected on mount (uncontrolled, ignored in `'none'` mode). |
+| `expanded` | `ReadonlySet<string>` | `undefined` | Controlled expanded set. When set, the tree is controlled: keys report intent via `onExpandChange` and this prop is authoritative. |
+| `selected` | `ReadonlySet<string>` | `undefined` | Controlled selected set. When set, selection is controlled via `onSelectChange`. |
+| `focusedId` | `string` | `undefined` | Controlled focused node ID. When set, focus is controlled via `onFocusChange`. |
+| `visibleNodeCount` | `number` | `Infinity` | Max visible rows. Enables virtual scrolling when finite. Recommended for large trees (see Virtual Scrolling). |
 | `renderNode` | `(props: TreeNodeRendererProps<T>) => ReactNode` | `undefined` | Custom renderer for each node. Receives `{node, state}`. |
 | `loadChildren` | `(node: TreeNode<T>) => Promise<TreeNode<T>[]>` | `undefined` | Async loader called when expanding an `isParent: true` node. |
 | `onLoadError` | `(nodeId: string, error: Error) => void` | `undefined` | Called when `loadChildren` rejects. Loading state is cleared so the user can retry. |
@@ -123,6 +127,8 @@ const data: TreeNode<FileInfo>[] = [
 | Space | Toggle expand/collapse (`'none'`/`'single'` mode) or toggle selection (`'multiple'` mode) |
 | Home | Jump to the first node |
 | End | Jump to the last node |
+| Page Up | Move focus up by one viewport page |
+| Page Down | Move focus down by one viewport page |
 
 ## Custom Rendering
 
@@ -208,6 +214,40 @@ Enter selects the focused node. Only one node can be selected at a time.
 
 Enter and Space toggle selection on the focused node. Checkboxes appear next to each node.
 
+## Controlled Mode
+
+By default the tree is *uncontrolled*: it manages its own expansion, selection,
+and focus, seeded by `defaultExpanded` / `defaultSelected`. Pass the controlled
+counterparts (`expanded`, `selected`, `focusedId`) to take ownership of that
+state instead. This follows the standard React controlled/uncontrolled pattern:
+when a controlled prop is present, keypresses report *intent* through the
+matching callback (`onExpandChange`, `onSelectChange`, `onFocusChange`) and the
+prop stays authoritative until you update it.
+
+```tsx
+import {useState} from 'react';
+import {TreeView} from 'ink-tree-view';
+
+function ControlledTree({data}) {
+  const [expanded, setExpanded] = useState(new Set<string>());
+  const [selected, setSelected] = useState(new Set<string>());
+
+  return (
+    <TreeView
+      data={data}
+      selectionMode="multiple"
+      expanded={expanded}
+      selected={selected}
+      onExpandChange={ids => setExpanded(new Set(ids))}
+      onSelectChange={ids => setSelected(new Set(ids))}
+    />
+  );
+}
+```
+
+Mix and match: control only `selected` while leaving expansion uncontrolled, or
+vice versa. Any prop you omit keeps its uncontrolled behavior.
+
 ## Virtual Scrolling
 
 For large trees, set `visibleNodeCount` to limit the number of visible rows. The viewport scrolls to keep the focused node in view, and scroll indicators appear when content extends beyond the viewport.
@@ -219,6 +259,12 @@ For large trees, set `visibleNodeCount` to limit the number of visible rows. The
   visibleNodeCount={15}
 />
 ```
+
+**Performance:** `visibleNodeCount` defaults to `Infinity`, which renders every
+visible node. Individual rows are memoized so a keypress only re-renders the
+rows whose state actually changed, but for large, fully-expanded trees you
+should still set a finite `visibleNodeCount` so only a windowed slice is
+rendered at all.
 
 ## Async Children
 
@@ -292,6 +338,8 @@ const state = useTreeViewState({
 | `focusPrevious()` | Move focus up |
 | `focusFirst()` | Jump to first node |
 | `focusLast()` | Jump to last node |
+| `focusPageDown()` | Move focus down by one viewport page |
+| `focusPageUp()` | Move focus up by one viewport page |
 | `expand()` | Expand focused node |
 | `expandNode(id)` | Expand a specific node |
 | `collapse()` | Collapse focused node |
