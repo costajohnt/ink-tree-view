@@ -1,4 +1,5 @@
 import {type ReactNode} from 'react';
+import {type Theme} from './components/tree-view/theme.js';
 
 /**
  * A single node in the tree. Generic over the user's data shape.
@@ -68,6 +69,13 @@ export type SelectionMode = 'none' | 'single' | 'multiple';
 export type TreeViewProps<T = Record<string, unknown>> = {
 	/** The tree data. Array of root-level nodes. */
 	readonly data: Array<TreeNode<T>>;
+
+	/**
+	 * Custom theme merged over the default `treeViewTheme`. Provide any
+	 * subset of the style functions to override colors, glyph styling, or
+	 * layout without reimplementing rows via `renderNode`.
+	 */
+	readonly theme?: {readonly styles?: Partial<Theme['styles']>};
 
 	/**
 	 * Selection mode.

@@ -64,6 +64,35 @@ describe('TreeView', () => {
 			expect(frame).toContain('Music');
 		});
 
+		it('applies a custom theme merged over the default', () => {
+			// Default: unfocused rows get paddingLeft 2. Override to 6 and the
+			// unfocused root rows shift right by four columns.
+			const customTheme = {
+				styles: {
+					node: ({isFocused}: {isFocused?: boolean}) => ({
+						gap: 1,
+						paddingLeft: isFocused ? 0 : 6,
+					}),
+				},
+			};
+
+			const defaultFrame = render(<TreeView data={sampleData} />).lastFrame();
+			const {lastFrame} = render(
+				<TreeView data={sampleData} theme={customTheme} />,
+			);
+			const themedFrame = lastFrame();
+
+			// Downloads is unfocused (focus starts on Documents)
+			const defaultLine = defaultFrame!.split('\n').find(line => line.includes('Downloads'));
+			const themedLine = themedFrame!.split('\n').find(line => line.includes('Downloads'));
+			expect(defaultLine).toMatch(/^ {2}\S/);
+			expect(themedLine).toMatch(/^ {6}\S/);
+
+			// Untouched styles still come from the default theme
+			expect(themedFrame).toContain('Documents');
+			expect(themedFrame).toContain('Music');
+		});
+
 		it('does not show children initially (collapsed)', () => {
 			const {lastFrame} = render(<TreeView data={sampleData} />);
 			const frame = lastFrame();

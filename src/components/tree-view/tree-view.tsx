@@ -1,3 +1,4 @@
+import {useMemo} from 'react';
 import {Box, Text, useIsScreenReaderEnabled} from 'ink';
 import {type TreeViewProps} from '../../types.js';
 import {useTreeViewState} from './use-tree-view-state.js';
@@ -22,6 +23,7 @@ export function TreeView<T = Record<string, unknown>>({
 	onSelectChange,
 	isDisabled = false,
 	ariaLabel = 'Tree view',
+	theme: customTheme,
 }: TreeViewProps<T>) {
 	const state = useTreeViewState<T>({
 		data,
@@ -45,7 +47,12 @@ export function TreeView<T = Record<string, unknown>>({
 		onLoadError,
 	});
 
-	const {styles} = theme;
+	// Merge custom style overrides over the default theme. Memoized so row
+	// memoization (which compares `styles` by identity) keeps working.
+	const styles = useMemo(
+		() => ({...theme.styles, ...customTheme?.styles}),
+		[customTheme],
+	);
 	const isScreenReaderEnabled = useIsScreenReaderEnabled();
 
 	return (
@@ -57,7 +64,7 @@ export function TreeView<T = Record<string, unknown>>({
 		>
 			{isScreenReaderEnabled ? <Text aria-label={ariaLabel} /> : null}
 			{state.hasScrollUp
-				? <Text dimColor aria-label={`${state.viewportFromIndex} more items above`}>
+				? <Text {...styles.scrollIndicator()} aria-label={`${state.viewportFromIndex} more items above`}>
 					{'  \u2191 '}{state.viewportFromIndex} more above
 				</Text>
 				: null}
@@ -97,7 +104,7 @@ export function TreeView<T = Record<string, unknown>>({
 				);
 			})}
 			{state.hasScrollDown
-				? <Text dimColor aria-label={`${state.visibleCount - state.viewportToIndex} more items below`}>
+				? <Text {...styles.scrollIndicator()} aria-label={`${state.visibleCount - state.viewportToIndex} more items below`}>
 					{'  \u2193 '}{state.visibleCount - state.viewportToIndex}{' more below'}
 				</Text>
 				: null}

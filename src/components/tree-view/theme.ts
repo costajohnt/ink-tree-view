@@ -45,6 +45,9 @@ const theme = {
 		loadingIndicator: (): TextProps => ({
 			color: 'yellow',
 		}),
+		scrollIndicator: (): TextProps => ({
+			dimColor: true,
+		}),
 	},
 };
 
