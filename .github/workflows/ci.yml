@@ -30,6 +30,9 @@ jobs:
       - run: npm run build
       - run: npx tsc --noEmit
       - run: npm test
+      # Coverage report (one leg is enough; keeps the matrix fast)
+      - run: npm run coverage
+        if: matrix.node-version == 22 && matrix.ink-version == 6
 
   lint:
     runs-on: ubuntu-latest
