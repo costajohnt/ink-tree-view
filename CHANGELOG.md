@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/costajohnt/ink-tree-view/compare/v0.3.0...v0.4.0) (2026-07-24)
+
+
+### Features
+
+* add optional theme prop to TreeView ([bbca3cd](https://github.com/costajohnt/ink-tree-view/commit/bbca3cd4ec2e03830a8a01a69206d275f061386d)), closes [#7](https://github.com/costajohnt/ink-tree-view/issues/7)
+
 ## 0.3.0 (2026-07-01)
 
 ### Features
