@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/costajohnt/ink-tree-view/compare/v0.4.1...v0.4.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **deps:** patch dev dependency advisories ([#15](https://github.com/costajohnt/ink-tree-view/issues/15)) ([d65ab5c](https://github.com/costajohnt/ink-tree-view/commit/d65ab5c911d7addd890f542826d854c7256b6b7e))
+
 ## [0.4.1](https://github.com/costajohnt/ink-tree-view/compare/v0.4.0...v0.4.1) (2026-10-10)
 
 
