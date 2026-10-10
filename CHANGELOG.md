@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/costajohnt/ink-tree-view/compare/v0.4.0...v0.4.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* report duplicate ids from loadChildren via onLoadError instead of crashing ([#13](https://github.com/costajohnt/ink-tree-view/issues/13)) ([78b3cff](https://github.com/costajohnt/ink-tree-view/commit/78b3cff654183a382bd5fb44e2968f63336bbc4d)), closes [#12](https://github.com/costajohnt/ink-tree-view/issues/12)
+
 ## [0.4.0](https://github.com/costajohnt/ink-tree-view/compare/v0.3.0...v0.4.0) (2026-07-24)
 
 
