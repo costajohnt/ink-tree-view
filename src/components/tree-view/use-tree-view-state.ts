@@ -607,10 +607,20 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				return state;
 			}
 
-			const newNodeMap = state.nodeMap.withChildren(
-				action.parentId,
-				action.children,
-			);
+			let newNodeMap: TreeNodeMap<T>;
+			try {
+				newNodeMap = state.nodeMap.withChildren(
+					action.parentId,
+					action.children,
+				);
+			} catch {
+				// Invalid children (duplicate id). The async loader validates
+				// before dispatching and reports via onLoadError; this guard
+				// only covers a race where two loads resolve in the same tick
+				// with conflicting ids. Throwing here would crash the render.
+				return state;
+			}
+
 			const newVisible = newNodeMap.getVisibleIds(state.expandedIds);
 			return {
 				...state,

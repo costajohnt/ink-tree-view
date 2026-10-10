@@ -659,6 +659,43 @@ describe('TreeView', () => {
 			expect(onLoadError).toHaveBeenCalledWith('lazy-root', loadError);
 		});
 
+		it('calls onLoadError instead of crashing when loaded children reuse an existing id', async () => {
+			const loadChildren = vi.fn().mockResolvedValue([
+				{id: 'leaf', label: 'Dup'},
+			]);
+			const onLoadError = vi.fn();
+
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={asyncData}
+					loadChildren={loadChildren}
+					onLoadError={onLoadError}
+				/>,
+			);
+
+			await waitForInput(stdin);
+			stdin.write(ARROW_RIGHT);
+
+			await waitFor(() => {
+				expect(onLoadError).toHaveBeenCalledTimes(1);
+			});
+			expect(onLoadError).toHaveBeenCalledWith(
+				'lazy-root',
+				expect.objectContaining({
+					message: expect.stringContaining('Duplicate node id \'leaf\'') as unknown,
+				}),
+			);
+
+			// The tree still renders, the loading indicator clears, and the
+			// duplicate child was not inserted.
+			await waitFor(() => {
+				expect(lastFrame()).not.toContain('\u27F3');
+			});
+			expect(lastFrame()).toContain('Lazy Root');
+			expect(lastFrame()).toContain('Leaf Node');
+			expect(lastFrame()).not.toContain('Dup');
+		});
+
 		it('node can be retried after load error', async () => {
 			let callCount = 0;
 			const loadChildren = vi.fn().mockImplementation(() => {

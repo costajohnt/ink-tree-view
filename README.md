@@ -109,7 +109,7 @@ const data: TreeNode<FileInfo>[] = [
 | `visibleNodeCount` | `number` | `Infinity` | Max visible rows. Enables virtual scrolling when finite. Recommended for large trees (see Virtual Scrolling). |
 | `renderNode` | `(props: TreeNodeRendererProps<T>) => ReactNode` | `undefined` | Custom renderer for each node. Receives `{node, state}`. |
 | `loadChildren` | `(node: TreeNode<T>) => Promise<TreeNode<T>[]>` | `undefined` | Async loader called when expanding an `isParent: true` node. |
-| `onLoadError` | `(nodeId: string, error: Error) => void` | `undefined` | Called when `loadChildren` rejects. Loading state is cleared so the user can retry. |
+| `onLoadError` | `(nodeId: string, error: Error) => void` | `undefined` | Called when `loadChildren` rejects, or resolves with children that cannot be inserted (for example a node id that already exists in the tree). Loading state is cleared so the user can retry. |
 | `onFocusChange` | `(nodeId: string) => void` | `undefined` | Called when the focused node changes (not on initial mount). |
 | `onExpandChange` | `(expandedIds: ReadonlySet<string>) => void` | `undefined` | Called when the set of expanded nodes changes. |
 | `onSelectChange` | `(selectedIds: ReadonlySet<string>) => void` | `undefined` | Called when the selection changes. |
@@ -292,7 +292,7 @@ render(
 );
 ```
 
-When `loadChildren` rejects, `onLoadError` fires and the loading state is cleared so the user can retry by pressing Right Arrow again.
+When `loadChildren` rejects, or resolves with a child whose id already exists in the tree, `onLoadError` fires and the loading state is cleared so the user can retry by pressing Right Arrow again.
 
 ## Hooks API
 
