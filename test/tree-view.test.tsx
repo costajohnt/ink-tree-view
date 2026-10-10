@@ -1,7 +1,6 @@
 import {describe, it, expect, vi} from 'vitest';
 import React from 'react';
 import {render} from 'ink-testing-library';
-import delay from 'delay';
 import {Text} from 'ink';
 import {TreeView} from '../src/components/tree-view/tree-view.js';
 import {
@@ -22,6 +21,85 @@ const HOME = `${ESC}[H`;
 const END = `${ESC}[F`;
 const PAGE_UP = `${ESC}[5~`;
 const PAGE_DOWN = `${ESC}[6~`;
+
+type Stdin = ReturnType<typeof render>['stdin'];
+type LastFrame = () => string | undefined;
+
+/**
+ * Flush a handful of macrotask turns so pending renders, effects, and mocked
+ * promises settle. Used after a successful wait, and before NEGATIVE
+ * assertions where there is no positive condition to poll for. All async work
+ * in these tests is microtask/timer-0 based, so a fixed number of event-loop
+ * turns is deterministic regardless of machine load.
+ */
+async function settle(turns = 10): Promise<void> {
+	if (turns <= 0) {
+		return;
+	}
+
+	await new Promise(resolve => {
+		setTimeout(resolve, 0);
+	});
+	await settle(turns - 1);
+}
+
+/**
+ * Poll until `assertion` stops throwing, or fail with its last error after
+ * `timeoutMs`. Deterministic replacement for fixed sleeps: passes as soon as
+ * the condition holds, only times out when the condition genuinely never does.
+ *
+ * After the condition holds, flush a few macrotask turns: ink's `useInput`
+ * re-attaches its stdin listener in a passive effect after every render, so a
+ * keypress written the instant a new frame is visible (commit happens before
+ * effects) can be dropped. The flush lets effects settle before the caller's
+ * next `stdin.write`.
+ */
+async function waitFor(assertion: () => void, timeoutMs = 5000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	const poll = async (): Promise<void> => {
+		try {
+			assertion();
+		} catch (error) {
+			if (Date.now() >= deadline) {
+				throw error;
+			}
+
+			await new Promise(resolve => {
+				setTimeout(resolve, 10);
+			});
+			await poll();
+		}
+	};
+
+	await poll();
+	await settle();
+}
+
+/** Wait until ink has attached its stdin listener, so the first keypress is not dropped. */
+async function waitForInput(stdin: Stdin): Promise<void> {
+	await waitFor(() => {
+		if (stdin.listenerCount('readable') === 0) {
+			throw new Error('ink has not attached its stdin listener yet');
+		}
+	});
+}
+
+/** Write `key` and poll until the frame re-renders. */
+async function press(lastFrame: LastFrame, stdin: Stdin, key: string): Promise<void> {
+	const before = lastFrame();
+	stdin.write(key);
+	await waitFor(() => {
+		if (lastFrame() === before) {
+			throw new Error('Frame did not change');
+		}
+	});
+}
+
+/** Write `key` when no visible change is expected, then let it be processed. */
+async function pressWithoutChange(stdin: Stdin, key: string): Promise<void> {
+	stdin.write(key);
+	await settle();
+}
 
 const sampleData: Array<TreeNode> = [
 	{
@@ -123,9 +201,8 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} />,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ARROW_DOWN);
 
 			const frame = lastFrame();
 			// Downloads should now be focused (has pointer)
@@ -138,14 +215,14 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} />,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
-			stdin.write(ARROW_UP);
-			await delay(50);
+			await waitForInput(stdin);
+			const initialFrame = lastFrame();
+			await press(lastFrame, stdin, ARROW_DOWN);
+			await press(lastFrame, stdin, ARROW_UP);
 
 			const frame = lastFrame();
 			expect(frame).toContain('Documents');
+			expect(frame).toBe(initialFrame);
 		});
 	});
 
@@ -155,9 +232,8 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} />,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_RIGHT);
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ARROW_RIGHT);
 
 			const frame = lastFrame();
 			expect(frame).toContain('Photos');
@@ -169,11 +245,9 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} />,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_RIGHT); // expand
-			await delay(50);
-			stdin.write(ARROW_LEFT); // collapse
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ARROW_RIGHT); // expand
+			await press(lastFrame, stdin, ARROW_LEFT); // collapse
 
 			const frame = lastFrame();
 			expect(frame).not.toContain('Photos');
@@ -182,20 +256,20 @@ describe('TreeView', () => {
 
 		it('right arrow on expanded node moves to first child', async () => {
 			const onFocusChange = vi.fn();
-			const {stdin} = render(
+			const {lastFrame, stdin} = render(
 				<TreeView
 					data={sampleData}
 					onFocusChange={onFocusChange}
 				/>,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_RIGHT); // expand root-1
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ARROW_RIGHT); // expand root-1
 			stdin.write(ARROW_RIGHT); // move to first child (child-1-1)
-			await delay(50);
 
-			expect(onFocusChange).toHaveBeenCalledWith('child-1-1');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenCalledWith('child-1-1');
+			});
 		});
 
 		it('left arrow on collapsed child moves to parent', async () => {
@@ -208,13 +282,16 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_DOWN); // move to child-1-1
-			await delay(50);
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('child-1-1');
+			});
 			stdin.write(ARROW_LEFT); // move to parent root-1
-			await delay(50);
 
-			expect(onFocusChange).toHaveBeenCalledWith('root-1');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+			});
 		});
 
 		it('enter toggles expand in none selection mode', async () => {
@@ -222,9 +299,8 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} selectionMode="none" />,
 			);
 
-			await delay(50);
-			stdin.write(ENTER);
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ENTER);
 
 			const frame = lastFrame();
 			expect(frame).toContain('Photos');
@@ -235,9 +311,8 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} selectionMode="none" />,
 			);
 
-			await delay(50);
-			stdin.write(SPACE);
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, SPACE);
 
 			const frame = lastFrame();
 			expect(frame).toContain('Photos');
@@ -255,11 +330,12 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ENTER);
-			await delay(50);
 
-			expect(onSelectChange).toHaveBeenCalled();
+			await waitFor(() => {
+				expect(onSelectChange).toHaveBeenCalled();
+			});
 			const lastCall =
 				onSelectChange.mock.calls[
 					onSelectChange.mock.calls.length - 1
@@ -277,11 +353,12 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(SPACE);
-			await delay(50);
 
-			expect(onSelectChange).toHaveBeenCalled();
+			await waitFor(() => {
+				expect(onSelectChange).toHaveBeenCalled();
+			});
 			const lastCall =
 				onSelectChange.mock.calls[
 					onSelectChange.mock.calls.length - 1
@@ -340,13 +417,10 @@ describe('TreeView', () => {
 			expect(frame).toContain('more below');
 
 			// Navigate down to trigger scroll
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
+			await waitForInput(stdin);
+			await press(lastFrame, stdin, ARROW_DOWN);
+			await press(lastFrame, stdin, ARROW_DOWN);
+			await press(lastFrame, stdin, ARROW_DOWN);
 
 			frame = lastFrame();
 			expect(frame).toContain('more above');
@@ -364,9 +438,8 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
+			await settle();
+			await pressWithoutChange(stdin, ARROW_DOWN);
 
 			// onFocusChange should only have been called with the initial focus
 			// Not again for arrow down
@@ -387,11 +460,12 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_DOWN);
-			await delay(50);
 
-			expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			});
 		});
 
 		it('fires onExpandChange on expand', async () => {
@@ -403,11 +477,12 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(50);
 
-			expect(onExpandChange).toHaveBeenCalled();
+			await waitFor(() => {
+				expect(onExpandChange).toHaveBeenCalled();
+			});
 		});
 	});
 
@@ -504,11 +579,12 @@ describe('TreeView', () => {
 				<TreeView data={asyncData} loadChildren={loadChildren} />,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT); // expand lazy-root
-			await delay(50);
 
-			expect(loadChildren).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(loadChildren).toHaveBeenCalledTimes(1);
+			});
 			expect(loadChildren).toHaveBeenCalledWith(
 				expect.objectContaining({id: 'lazy-root'}),
 			);
@@ -526,17 +602,19 @@ describe('TreeView', () => {
 				<TreeView data={asyncData} loadChildren={loadChildren} />,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(50);
 
 			// Loading indicator should be shown (the ⟳ character)
-			const frame = lastFrame();
-			expect(frame).toContain('\u27F3');
+			await waitFor(() => {
+				expect(lastFrame()).toContain('\u27F3');
+			});
 
 			// Resolve to clean up
 			resolveFn([{id: 'child-a', label: 'Child A'}]);
-			await delay(50);
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Child A');
+			});
 		});
 
 		it('children are inserted after load completes', async () => {
@@ -549,13 +627,14 @@ describe('TreeView', () => {
 				<TreeView data={asyncData} loadChildren={loadChildren} />,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(200);
 
-			const frame = lastFrame();
-			expect(frame).toContain('Child A');
-			expect(frame).toContain('Child B');
+			await waitFor(() => {
+				const frame = lastFrame();
+				expect(frame).toContain('Child A');
+				expect(frame).toContain('Child B');
+			});
 		});
 
 		it('calls onLoadError when loadChildren rejects', async () => {
@@ -571,11 +650,12 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(200);
 
-			expect(onLoadError).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onLoadError).toHaveBeenCalledTimes(1);
+			});
 			expect(onLoadError).toHaveBeenCalledWith('lazy-root', loadError);
 		});
 
@@ -600,20 +680,21 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			// First attempt: fails
-			await delay(50);
+			// First attempt: fails, and the loading indicator clears again.
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(200);
-
-			expect(loadChildren).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(loadChildren).toHaveBeenCalledTimes(1);
+				expect(lastFrame()).not.toContain('\u27F3');
+			});
 			expect(lastFrame()).not.toContain('Child A');
 
 			// Second attempt: succeeds
 			stdin.write(ARROW_RIGHT);
-			await delay(200);
-
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Child A');
+			});
 			expect(loadChildren).toHaveBeenCalledTimes(2);
-			expect(lastFrame()).toContain('Child A');
 		});
 	});
 
@@ -624,14 +705,16 @@ describe('TreeView', () => {
 				<TreeView data={sampleData} onFocusChange={onFocusChange} />,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(END);
-			await delay(50);
-			expect(onFocusChange).toHaveBeenLastCalledWith('root-3');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('root-3');
+			});
 
 			stdin.write(HOME);
-			await delay(50);
-			expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+			});
 		});
 
 		it('PageDown / PageUp move focus by a viewport page', async () => {
@@ -645,16 +728,18 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			// Visible order (all expanded): root-1, child-1-1, leaf-1-1-1,
 			// leaf-1-1-2, ... A page is 3 rows, so PageDown from index 0 -> 3.
 			stdin.write(PAGE_DOWN);
-			await delay(50);
-			expect(onFocusChange).toHaveBeenLastCalledWith('leaf-1-1-2');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('leaf-1-1-2');
+			});
 
 			stdin.write(PAGE_UP);
-			await delay(50);
-			expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenLastCalledWith('root-1');
+			});
 		});
 	});
 
@@ -668,19 +753,16 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			// Initially only the "below" indicator is shown.
 			let frame = lastFrame();
 			expect(frame).toContain('↓'); // actual down-arrow glyph
 			expect(frame).not.toContain('u2193'); // not the literal escape text
 
 			// Scroll down far enough to reveal the "above" indicator too.
-			stdin.write(ARROW_DOWN);
-			await delay(20);
-			stdin.write(ARROW_DOWN);
-			await delay(20);
-			stdin.write(ARROW_DOWN);
-			await delay(50);
+			await press(lastFrame, stdin, ARROW_DOWN);
+			await press(lastFrame, stdin, ARROW_DOWN);
+			await press(lastFrame, stdin, ARROW_DOWN);
 
 			frame = lastFrame();
 			expect(frame).toContain('↑'); // actual up-arrow glyph
@@ -708,13 +790,14 @@ describe('TreeView', () => {
 			}
 
 			const {lastFrame, stdin} = render(<Wrapper />);
-			await delay(50);
+			await waitForInput(stdin);
 			expect(lastFrame()).not.toContain('Photos');
 
 			stdin.write(ARROW_RIGHT);
-			await delay(80);
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Photos');
+			});
 			expect(onExpandChange).toHaveBeenCalled();
-			expect(lastFrame()).toContain('Photos');
 		});
 
 		it('controlled expanded stays authoritative when the parent ignores intent', async () => {
@@ -727,9 +810,11 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_RIGHT);
-			await delay(80);
+			await waitFor(() => {
+				expect(onExpandChange).toHaveBeenCalled();
+			});
 			// Intent is reported exactly once (no double-fire / reconcile loop)...
 			expect(onExpandChange).toHaveBeenCalledTimes(1);
 			// ...but the prop remains authoritative, so nothing expands.
@@ -747,9 +832,11 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(SPACE);
-			await delay(80);
+			await waitFor(() => {
+				expect(onSelectChange).toHaveBeenCalled();
+			});
 			// Exactly one intent report, no reconcile loop.
 			expect(onSelectChange).toHaveBeenCalledTimes(1);
 			expect(onSelectChange.mock.calls[0]![0].has('root-1')).toBe(true);
@@ -775,16 +862,20 @@ describe('TreeView', () => {
 			}
 
 			const {stdin} = render(<Wrapper />);
-			await delay(50);
+			await waitForInput(stdin);
 
 			stdin.write(SPACE); // select root-1
-			await delay(80);
+			await waitFor(() => {
+				expect(onSelectChange).toHaveBeenCalledTimes(1);
+			});
 			expect(onSelectChange.mock.calls.at(-1)![0].has('root-1')).toBe(
 				true,
 			);
 
 			stdin.write(SPACE); // toggle root-1 back off (prop fed back in)
-			await delay(80);
+			await waitFor(() => {
+				expect(onSelectChange).toHaveBeenCalledTimes(2);
+			});
 			expect(onSelectChange.mock.calls.at(-1)![0].has('root-1')).toBe(
 				false,
 			);
@@ -800,17 +891,20 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_DOWN); // intent to focus root-2 (ignored)
-			await delay(80);
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenCalled();
+			});
 			// One intent report; the reconcile revert is suppressed (no dupe).
 			expect(onFocusChange).toHaveBeenCalledTimes(1);
 			expect(onFocusChange).toHaveBeenCalledWith('root-2');
 
 			// Focus reverted to the controlled root-1, so expanding acts on it.
 			stdin.write(ARROW_RIGHT);
-			await delay(80);
-			expect(lastFrame()).toContain('Photos');
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Photos');
+			});
 		});
 
 		it('does not stall onFocusChange when focusedId targets a hidden node', async () => {
@@ -829,19 +923,21 @@ describe('TreeView', () => {
 				/>,
 			);
 
-			await delay(50);
+			await waitForInput(stdin);
 			stdin.write(ARROW_DOWN);
-			await delay(80);
 			// The navigation intent is still reported (not swallowed).
-			expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenCalledWith('root-2');
+			});
 			// And a dev warning was emitted for the un-focusable node.
 			expect(warnSpy).toHaveBeenCalled();
 
 			// A second navigation still fires, proving the flag is not stuck.
 			onFocusChange.mockClear();
 			stdin.write(ARROW_DOWN);
-			await delay(80);
-			expect(onFocusChange).toHaveBeenCalledWith('root-3');
+			await waitFor(() => {
+				expect(onFocusChange).toHaveBeenCalledWith('root-3');
+			});
 
 			warnSpy.mockRestore();
 		});

@@ -55,7 +55,6 @@
     "@types/node": "^20.19.43",
     "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^2.1.9",
-    "delay": "^6.0.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "ink": "^6.8.0",
