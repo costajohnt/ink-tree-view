@@ -532,6 +532,21 @@ describe('reducer + createDefaultState', () => {
 			});
 			expect(after).toBe(state);
 		});
+
+		it('returns state unchanged instead of throwing on a duplicate id', () => {
+			const state = makeState({
+				data: [
+					{id: 'lazy', label: 'Lazy', isParent: true},
+					{id: 'leaf', label: 'Leaf'},
+				],
+			});
+			const after = reducer(state, {
+				type: 'insert-children',
+				parentId: 'lazy',
+				children: [{id: 'leaf', label: 'Dup'}],
+			});
+			expect(after).toBe(state);
+		});
 	});
 
 	describe('reset', () => {

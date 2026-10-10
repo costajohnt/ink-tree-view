@@ -48,6 +48,11 @@ export function useTreeView<T>({
 
 		try {
 			const children = await currentLoadChildren(flat.node);
+			// Build the resulting map here, inside the try, so invalid children
+			// (e.g. an id that already exists in the tree) take the onLoadError
+			// path. The reducer would otherwise throw during render and crash
+			// the whole app.
+			stateRef.current.nodeMap.withChildren(nodeId, children);
 			stateRef.current.insertChildren(nodeId, children);
 			stateRef.current.expandNode(nodeId);
 		} catch (error: unknown) {
