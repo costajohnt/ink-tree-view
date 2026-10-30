@@ -25,38 +25,24 @@ export function buildNodeAriaLabel(
 	siblingCount: number,
 ): string {
 	const {depth, hasChildren, isExpanded, isLoading, isSelected} = nodeState;
-	const parts: string[] = [label, `item ${siblingPosition} of ${siblingCount}`];
-	if (depth > 0) {
-		parts.push(`depth ${depth}`);
-	}
-
-	if (hasChildren) {
-		parts.push(isExpanded ? 'expanded' : 'collapsed');
-	}
-
-	if (isLoading) {
-		parts.push('loading');
-	}
-
-	if (isSelected) {
-		parts.push('selected');
-	}
-
-	return parts.join(', ');
+	return [
+		label,
+		`item ${siblingPosition} of ${siblingCount}`,
+		...(depth > 0 ? [`depth ${depth}`] : []),
+		...(hasChildren ? [isExpanded ? 'expanded' : 'collapsed'] : []),
+		...(isLoading ? ['loading'] : []),
+		...(isSelected ? ['selected'] : []),
+	].join(', ');
 }
 
 export function buildNodeAriaState(
 	nodeState: TreeNodeState,
 	selectionMode: SelectionMode,
 ): {expanded?: boolean; selected?: boolean} | undefined {
-	const state: {expanded?: boolean; selected?: boolean} = {};
-	if (nodeState.hasChildren) {
-		state.expanded = nodeState.isExpanded;
-	}
-
-	if (selectionMode !== 'none') {
-		state.selected = nodeState.isSelected;
-	}
+	const state: {expanded?: boolean; selected?: boolean} = {
+		...(nodeState.hasChildren && {expanded: nodeState.isExpanded}),
+		...(selectionMode !== 'none' && {selected: nodeState.isSelected}),
+	};
 
 	return Object.keys(state).length > 0 ? state : undefined;
 }
@@ -119,7 +105,7 @@ function TreeViewNodeInner<T>({
 			aria-role="listitem"
 			aria-state={buildNodeAriaState(nodeState, selectionMode)}
 		>
-			{ariaLabel ? <Text aria-label={ariaLabel} /> : null}
+			{ariaLabel !== undefined && ariaLabel !== '' ? <Text aria-label={ariaLabel} /> : null}
 			{/* Focus indicator */}
 			{isFocused ? <Text {...styles.focusIndicator()} aria-hidden>{figures.pointer}</Text> : null}
 

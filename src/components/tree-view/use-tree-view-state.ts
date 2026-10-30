@@ -2,6 +2,7 @@ import process from 'node:process';
 import {
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useReducer,
 	useRef,
@@ -33,7 +34,7 @@ export type State<T> = {
 
 // ─── Set comparison ──────────────────────────────────────────────────────────
 
-function setsEqual(
+function areSetsEqual(
 	a: ReadonlySet<string>,
 	b: ReadonlySet<string>,
 ): boolean {
@@ -160,7 +161,7 @@ function adjustViewportForNewVisible<T>(
 	}
 
 	// Keep the focused node in the viewport
-	const focusedIdx = state.focusedId
+	const focusedIdx = state.focusedId !== undefined && state.focusedId !== ''
 		? newVisible.indexOf(state.focusedId)
 		: -1;
 
@@ -200,7 +201,7 @@ function adjustViewportForNewVisible<T>(
 export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 	switch (action.type) {
 		case 'focus-next': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -218,7 +219,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-previous': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -265,7 +266,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-page-down': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -294,7 +295,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-page-up': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -337,7 +338,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'set-expanded': {
-			if (setsEqual(action.expandedIds, state.expandedIds)) {
+			if (areSetsEqual(action.expandedIds, state.expandedIds)) {
 				return state;
 			}
 
@@ -365,7 +366,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'set-selected': {
-			if (setsEqual(action.selectedIds, state.selectedIds)) {
+			if (areSetsEqual(action.selectedIds, state.selectedIds)) {
 				return state;
 			}
 
@@ -380,7 +381,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'expand': {
-			return state.focusedId ? reducer(state, {type: 'expand-node', nodeId: state.focusedId}) : state;
+			return state.focusedId !== undefined && state.focusedId !== '' ? reducer(state, {type: 'expand-node', nodeId: state.focusedId}) : state;
 		}
 
 		case 'expand-node': {
@@ -411,7 +412,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'collapse': {
-			return state.focusedId ? reducer(state, {type: 'collapse-node', nodeId: state.focusedId}) : state;
+			return state.focusedId !== undefined && state.focusedId !== '' ? reducer(state, {type: 'collapse-node', nodeId: state.focusedId}) : state;
 		}
 
 		case 'collapse-node': {
@@ -450,11 +451,9 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'toggle-expanded': {
-			if (!state.focusedId) {
-				return state;
-			}
-
-			return state.expandedIds.has(state.focusedId) ? reducer(state, {type: 'collapse'}) : reducer(state, {type: 'expand'});
+			return state.focusedId === undefined || state.focusedId === ''
+				? state
+				: reducer(state, {type: state.expandedIds.has(state.focusedId) ? 'collapse' : 'expand'});
 		}
 
 		case 'expand-all': {
@@ -498,7 +497,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'select': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -531,12 +530,12 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-parent': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
 			const flat = state.nodeMap.get(state.focusedId);
-			if (!flat?.parentId) {
+			if (flat?.parentId === undefined || flat.parentId === '') {
 				return state;
 			}
 
@@ -553,7 +552,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'focus-first-child': {
-			if (!state.focusedId) {
+			if (state.focusedId === undefined || state.focusedId === '') {
 				return state;
 			}
 
@@ -822,19 +821,22 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	const warnedFocusRef = useRef<string | undefined>(undefined);
 
 	// Store callbacks in refs to avoid infinite loops when consumers
-	// pass inline functions (new reference every render)
+	// pass inline functions (new reference every render). Synced in a layout
+	// effect declared before the effects below, so they always see the latest.
 	const onFocusChangeRef = useRef(onFocusChange);
-	onFocusChangeRef.current = onFocusChange;
 	const onExpandChangeRef = useRef(onExpandChange);
-	onExpandChangeRef.current = onExpandChange;
 	const onSelectChangeRef = useRef(onSelectChange);
-	onSelectChangeRef.current = onSelectChange;
+	useLayoutEffect(() => {
+		onFocusChangeRef.current = onFocusChange;
+		onExpandChangeRef.current = onExpandChange;
+		onSelectChangeRef.current = onSelectChange;
+	});
 
 	// Fire callbacks on state changes (skip initial mount for onFocusChange)
-	const isInitialMount = useRef(true);
+	const isInitialMountRef = useRef(true);
 	useEffect(() => {
-		if (isInitialMount.current) {
-			isInitialMount.current = false;
+		if (isInitialMountRef.current) {
+			isInitialMountRef.current = false;
 			return;
 		}
 
@@ -843,7 +845,7 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			return;
 		}
 
-		if (state.focusedId) {
+		if (state.focusedId !== undefined && state.focusedId !== '') {
 			onFocusChangeRef.current?.(state.focusedId);
 		}
 	}, [state.focusedId]);
@@ -866,13 +868,13 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	// callbacks above; if the parent does not accept the intent (prop unchanged)
 	// these effects revert internal state so the prop stays authoritative.
 	useEffect(() => {
-		if (expanded !== undefined && !setsEqual(expanded, state.expandedIds)) {
+		if (expanded !== undefined && !areSetsEqual(expanded, state.expandedIds)) {
 			dispatch({type: 'set-expanded', expandedIds: expanded});
 		}
 	}, [expanded, state.expandedIds]);
 
 	useEffect(() => {
-		if (selected !== undefined && !setsEqual(selected, state.selectedIds)) {
+		if (selected !== undefined && !areSetsEqual(selected, state.selectedIds)) {
 			dispatch({type: 'set-selected', selectedIds: selected});
 		}
 	}, [selected, state.selectedIds]);
@@ -896,19 +898,21 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		// Controlled focusedId points at a node that cannot be focused. Warn
 		// once (dev only) rather than silently ignoring it.
 		if (
-			process.env['NODE_ENV'] !== 'production' &&
-			warnedFocusRef.current !== focusedId
+			process.env['NODE_ENV'] === 'production' ||
+			warnedFocusRef.current === focusedId
 		) {
-			warnedFocusRef.current = focusedId;
-			const isExists = state.nodeMap.get(focusedId) !== undefined;
-			console.warn(
-				`ink-tree-view: controlled focusedId "${focusedId}" ${
-					isExists
-						? 'is not currently visible (it is inside a collapsed node)'
-						: 'is not a node in the tree'
-				}; the focus prop is ignored until the node becomes visible.`,
-			);
+			return;
 		}
+
+		warnedFocusRef.current = focusedId;
+		const isExists = state.nodeMap.get(focusedId) !== undefined;
+		console.warn(
+			`ink-tree-view: controlled focusedId "${focusedId}" ${
+				isExists
+					? 'is not currently visible (it is inside a collapsed node)'
+					: 'is not a node in the tree'
+			}; the focus prop is ignored until the node becomes visible.`,
+		);
 	}, [focusedId, state.focusedId, state.visibleIdIndex, state.nodeMap]);
 
 	// Compute viewportNodes from state
@@ -938,95 +942,63 @@ export function useTreeViewState<T = Record<string, unknown>>({
 		state.loadingIds,
 	]);
 
-	const focusNext = useCallback(
-		() => {dispatch({type: 'focus-next'});
-		},
-		[],
-	);
-	const focusPrevious = useCallback(
-		() => {dispatch({type: 'focus-previous'});
-		},
-		[],
-	);
-	const focusFirst = useCallback(
-		() => {dispatch({type: 'focus-first'});
-		},
-		[],
-	);
-	const focusLast = useCallback(
-		() => {dispatch({type: 'focus-last'});
-		},
-		[],
-	);
-	const focusPageDown = useCallback(
-		() => {dispatch({type: 'focus-page-down'});
-		},
-		[],
-	);
-	const focusPageUp = useCallback(
-		() => {dispatch({type: 'focus-page-up'});
-		},
-		[],
-	);
-	const expand = useCallback(() => {dispatch({type: 'expand'});
+	const focusNext = useCallback(() => {
+		dispatch({type: 'focus-next'});
 	}, []);
-	const expandNode = useCallback(
-		(nodeId: string) => {dispatch({type: 'expand-node', nodeId});
-		},
-		[],
-	);
-	const collapse = useCallback(
-		() => {dispatch({type: 'collapse'});
-		},
-		[],
-	);
-	const collapseNode = useCallback(
-		(nodeId: string) => {dispatch({type: 'collapse-node', nodeId});
-		},
-		[],
-	);
-	const toggleExpanded = useCallback(
-		() => {dispatch({type: 'toggle-expanded'});
-		},
-		[],
-	);
-	const expandAll = useCallback(
-		() => {dispatch({type: 'expand-all'});
-		},
-		[],
-	);
-	const collapseAll = useCallback(
-		() => {dispatch({type: 'collapse-all'});
-		},
-		[],
-	);
-	const select = useCallback(() => {dispatch({type: 'select'});
+	const focusPrevious = useCallback(() => {
+		dispatch({type: 'focus-previous'});
 	}, []);
-	const focusParent = useCallback(
-		() => {dispatch({type: 'focus-parent'});
-		},
-		[],
-	);
-	const focusFirstChild = useCallback(
-		() => {dispatch({type: 'focus-first-child'});
-		},
-		[],
-	);
-	const setLoading = useCallback(
-		(nodeId: string, isLoading: boolean) => {dispatch({type: 'set-loading', nodeId, isLoading});
-		},
-		[],
-	);
-	const setChildrenError = useCallback(
-		(nodeId: string) => {dispatch({type: 'set-children-error', nodeId});
-		},
-		[],
-	);
-	const insertChildren = useCallback(
-		(parentId: string, children: Array<TreeNode<T>>) => {dispatch({type: 'insert-children', parentId, children});
-		},
-		[],
-	);
+	const focusFirst = useCallback(() => {
+		dispatch({type: 'focus-first'});
+	}, []);
+	const focusLast = useCallback(() => {
+		dispatch({type: 'focus-last'});
+	}, []);
+	const focusPageDown = useCallback(() => {
+		dispatch({type: 'focus-page-down'});
+	}, []);
+	const focusPageUp = useCallback(() => {
+		dispatch({type: 'focus-page-up'});
+	}, []);
+	const expand = useCallback(() => {
+		dispatch({type: 'expand'});
+	}, []);
+	const expandNode = useCallback((nodeId: string) => {
+		dispatch({type: 'expand-node', nodeId});
+	}, []);
+	const collapse = useCallback(() => {
+		dispatch({type: 'collapse'});
+	}, []);
+	const collapseNode = useCallback((nodeId: string) => {
+		dispatch({type: 'collapse-node', nodeId});
+	}, []);
+	const toggleExpanded = useCallback(() => {
+		dispatch({type: 'toggle-expanded'});
+	}, []);
+	const expandAll = useCallback(() => {
+		dispatch({type: 'expand-all'});
+	}, []);
+	const collapseAll = useCallback(() => {
+		dispatch({type: 'collapse-all'});
+	}, []);
+	const select = useCallback(() => {
+		dispatch({type: 'select'});
+	}, []);
+	const focusParent = useCallback(() => {
+		dispatch({type: 'focus-parent'});
+	}, []);
+	const focusFirstChild = useCallback(() => {
+		dispatch({type: 'focus-first-child'});
+	}, []);
+	const setLoading = useCallback((nodeId: string, isLoading: boolean) => {
+		dispatch({type: 'set-loading', nodeId, isLoading});
+	}, []);
+	const setChildrenError = useCallback((nodeId: string) => {
+		dispatch({type: 'set-children-error', nodeId});
+	}, []);
+	const insertChildren = useCallback((parentId: string, children: Array<TreeNode<T>>) => {
+		dispatch({type: 'insert-children', parentId, children});
+	}, []);
 
 	return {
 		focusedId: state.focusedId,
