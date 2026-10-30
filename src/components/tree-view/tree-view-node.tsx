@@ -148,7 +148,6 @@ function TreeViewNodeInner<T>({
 // Memoized on primitive props so unrelated rows do not re-render on every
 // keypress. The `as typeof TreeViewNodeInner` cast preserves the generic
 // call signature that `memo` would otherwise erase.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const TreeViewNode = memo(
 	TreeViewNodeInner,
 	areTreeViewNodePropsEqual,
