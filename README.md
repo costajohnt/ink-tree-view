@@ -29,7 +29,7 @@ A tree view component for [Ink](https://github.com/vadimdemedes/ink) (React for 
 npm install ink-tree-view
 ```
 
-Peer dependencies: `ink` (>=6.0.0), `react` (>=19.0.0). Requires Node.js >=20.
+Peer dependencies: `ink` (>=6.0.0), `react` (>=19.0.0). Requires Node.js >=22.
 
 ## Quick Start
 

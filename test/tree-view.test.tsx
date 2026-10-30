@@ -602,12 +602,8 @@ describe('TreeView', () => {
 		});
 
 		it('shows loading state during async operation', async () => {
-			let resolveFn!: (value: TreeNode[]) => void;
-			const loadChildren = vi.fn().mockReturnValue(
-				new Promise<TreeNode[]>(resolve => {
-					resolveFn = resolve;
-				}),
-			);
+			const {promise, resolve: resolveFn} = Promise.withResolvers<TreeNode[]>();
+			const loadChildren = vi.fn().mockReturnValue(promise);
 
 			const {lastFrame, stdin} = render(
 				<TreeView data={asyncData} loadChildren={loadChildren} />,
