@@ -14,13 +14,6 @@ const xoConfig = [
 			'@typescript-eslint/switch-exhaustiveness-check': 'off',
 		},
 	},
-	{
-		files: ['test/**', 'src/**/__tests__/**'],
-		rules: {
-			// CI tests on Node 20, which has no `Promise.withResolvers` (added in Node 22).
-			'unicorn/prefer-promise-with-resolvers': 'off',
-		},
-	},
 ];
 
 export default xoConfig;
