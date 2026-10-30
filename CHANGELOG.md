@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/costajohnt/ink-tree-view/compare/v0.4.2...v1.0.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* requires Node.js 22 or later.
+
+### Features
+
+* require Node.js 22 ([#20](https://github.com/costajohnt/ink-tree-view/issues/20)) ([d114835](https://github.com/costajohnt/ink-tree-view/commit/d114835dc37e4d6c100912c3fd758f8747907c30))
+
 ## [0.4.2](https://github.com/costajohnt/ink-tree-view/compare/v0.4.1...v0.4.2) (2026-10-10)
 
 
