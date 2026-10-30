@@ -51,19 +51,17 @@
     "figures": "^6.1.0"
   },
   "devDependencies": {
-    "@sindresorhus/tsconfig": "^5.0.0",
+    "@costajohnt/ink-config": "github:costajohnt/ink-config",
     "@types/node": "^20.19.43",
     "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^4.1.11",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.1.1",
     "ink": "^6.8.0",
     "ink-testing-library": "^4.0.0",
     "react": "^19.2.4",
     "tsup": "^8.0.0",
     "typescript": "^5.4.5",
     "vitest": "^4.1.11",
-    "xo": "^2.0.2"
+    "xo": "^5.0.1"
   },
   "engines": {
     "node": ">=20"
