@@ -2,7 +2,7 @@ import {describe, it, expect} from 'vitest';
 import {TreeNodeMap} from '../src/tree-node-map.js';
 import {type TreeNode} from '../src/types.js';
 
-const sampleData: Array<TreeNode> = [
+const sampleData: TreeNode[] = [
 	{
 		id: 'root-1',
 		label: 'Documents',
@@ -203,7 +203,7 @@ describe('TreeNodeMap', () => {
 
 	describe('duplicate ID detection', () => {
 		it('throws error on duplicate IDs', () => {
-			const data: Array<TreeNode> = [
+			const data: TreeNode[] = [
 				{
 					id: 'dup',
 					label: 'First',
@@ -250,7 +250,7 @@ describe('TreeNodeMap', () => {
 
 	describe('withChildren', () => {
 		it('inserts children under a parent node', () => {
-			const data: Array<TreeNode> = [
+			const data: TreeNode[] = [
 				{id: 'root', label: 'Root'},
 			];
 			const map = new TreeNodeMap(data);
@@ -272,7 +272,7 @@ describe('TreeNodeMap', () => {
 		});
 
 		it('returns same map if parentId not found', () => {
-			const data: Array<TreeNode> = [{id: 'root', label: 'Root'}];
+			const data: TreeNode[] = [{id: 'root', label: 'Root'}];
 			const map = new TreeNodeMap(data);
 			const result = map.withChildren('nonexistent', [
 				{id: 'child', label: 'Child'},
@@ -317,7 +317,7 @@ describe('TreeNodeMap', () => {
 		});
 
 		it('preserves siblingIndex and siblingCount after withChildren', () => {
-			const data: Array<TreeNode> = [
+			const data: TreeNode[] = [
 				{id: 'root', label: 'Root', isParent: true},
 			];
 			const map = new TreeNodeMap(data);

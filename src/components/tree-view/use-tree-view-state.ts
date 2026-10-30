@@ -1,6 +1,11 @@
 import process from 'node:process';
 import {
-	useCallback, useEffect, useMemo, useReducer, useRef, useState,
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
 } from 'react';
 import {type TreeNode, type TreeNodeState, type SelectionMode} from '../../types.js';
 import {TreeNodeMap} from '../../tree-node-map.js';
@@ -11,7 +16,9 @@ export type State<T> = {
 	nodeMap: TreeNodeMap<T>;
 	expandedIds: Set<string>;
 	visibleIds: string[];
-	/** O(1) lookup from node ID to index in visibleIds. */
+	/**
+	O(1) lookup from node ID to index in visibleIds.
+	*/
 	visibleIdIndex: Map<string, number>;
 	focusedId: string | undefined;
 	visibleNodeCount: number;
@@ -50,9 +57,9 @@ function setsEqual(
 // ─── Focus recovery helper ───────────────────────────────────────────────────
 
 /**
- * When a change hides the focused node, find the nearest ancestor that is
- * still visible so focus does not get stranded on an invisible node. Falls
- * back to the first visible node.
+ When a change hides the focused node, find the nearest ancestor that is
+ still visible so focus does not get stranded on an invisible node. Falls
+ back to the first visible node.
  */
 function recoverFocus<T>(
 	state: State<T>,
@@ -373,11 +380,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'expand': {
-			if (!state.focusedId) {
-				return state;
-			}
-
-			return reducer(state, {type: 'expand-node', nodeId: state.focusedId});
+			return state.focusedId ? reducer(state, {type: 'expand-node', nodeId: state.focusedId}) : state;
 		}
 
 		case 'expand-node': {
@@ -408,11 +411,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		}
 
 		case 'collapse': {
-			if (!state.focusedId) {
-				return state;
-			}
-
-			return reducer(state, {type: 'collapse-node', nodeId: state.focusedId});
+			return state.focusedId ? reducer(state, {type: 'collapse-node', nodeId: state.focusedId}) : state;
 		}
 
 		case 'collapse-node': {
@@ -455,11 +454,7 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				return state;
 			}
 
-			if (state.expandedIds.has(state.focusedId)) {
-				return reducer(state, {type: 'collapse'});
-			}
-
-			return reducer(state, {type: 'expand'});
+			return state.expandedIds.has(state.focusedId) ? reducer(state, {type: 'collapse'}) : reducer(state, {type: 'expand'});
 		}
 
 		case 'expand-all': {
@@ -648,7 +643,9 @@ export type CreateDefaultStateProps<T> = {
 	defaultExpanded?: ReadonlySet<string> | 'all';
 	defaultSelected?: ReadonlySet<string>;
 	visibleNodeCount: number;
-	/** Initial focused node (controlled `focusedId`); falls back to first node. */
+	/**
+	Initial focused node (controlled `focusedId`); falls back to first node.
+	*/
 	focusedId?: string;
 };
 
@@ -713,11 +710,17 @@ export type UseTreeViewStateProps<T = Record<string, unknown>> = {
 	selectionMode?: SelectionMode;
 	defaultExpanded?: ReadonlySet<string> | 'all';
 	defaultSelected?: ReadonlySet<string>;
-	/** Controlled expanded set. When provided, the tree is controlled. */
+	/**
+	Controlled expanded set. When provided, the tree is controlled.
+	*/
 	expanded?: ReadonlySet<string>;
-	/** Controlled selected set. When provided, selection is controlled. */
+	/**
+	Controlled selected set. When provided, selection is controlled.
+	*/
 	selected?: ReadonlySet<string>;
-	/** Controlled focused node ID. When provided, focus is controlled. */
+	/**
+	Controlled focused node ID. When provided, focus is controlled.
+	*/
 	focusedId?: string;
 	visibleNodeCount?: number;
 	onFocusChange?: (nodeId: string) => void;
@@ -897,10 +900,10 @@ export function useTreeViewState<T = Record<string, unknown>>({
 			warnedFocusRef.current !== focusedId
 		) {
 			warnedFocusRef.current = focusedId;
-			const exists = state.nodeMap.get(focusedId) !== undefined;
+			const isExists = state.nodeMap.get(focusedId) !== undefined;
 			console.warn(
 				`ink-tree-view: controlled focusedId "${focusedId}" ${
-					exists
+					isExists
 						? 'is not currently visible (it is inside a collapsed node)'
 						: 'is not a node in the tree'
 				}; the focus prop is ignored until the node becomes visible.`,
@@ -936,76 +939,92 @@ export function useTreeViewState<T = Record<string, unknown>>({
 	]);
 
 	const focusNext = useCallback(
-		() => dispatch({type: 'focus-next'}),
+		() => {dispatch({type: 'focus-next'});
+		},
 		[],
 	);
 	const focusPrevious = useCallback(
-		() => dispatch({type: 'focus-previous'}),
+		() => {dispatch({type: 'focus-previous'});
+		},
 		[],
 	);
 	const focusFirst = useCallback(
-		() => dispatch({type: 'focus-first'}),
+		() => {dispatch({type: 'focus-first'});
+		},
 		[],
 	);
 	const focusLast = useCallback(
-		() => dispatch({type: 'focus-last'}),
+		() => {dispatch({type: 'focus-last'});
+		},
 		[],
 	);
 	const focusPageDown = useCallback(
-		() => dispatch({type: 'focus-page-down'}),
+		() => {dispatch({type: 'focus-page-down'});
+		},
 		[],
 	);
 	const focusPageUp = useCallback(
-		() => dispatch({type: 'focus-page-up'}),
+		() => {dispatch({type: 'focus-page-up'});
+		},
 		[],
 	);
-	const expand = useCallback(() => dispatch({type: 'expand'}), []);
+	const expand = useCallback(() => {dispatch({type: 'expand'});
+	}, []);
 	const expandNode = useCallback(
-		(nodeId: string) => dispatch({type: 'expand-node', nodeId}),
+		(nodeId: string) => {dispatch({type: 'expand-node', nodeId});
+		},
 		[],
 	);
 	const collapse = useCallback(
-		() => dispatch({type: 'collapse'}),
+		() => {dispatch({type: 'collapse'});
+		},
 		[],
 	);
 	const collapseNode = useCallback(
-		(nodeId: string) => dispatch({type: 'collapse-node', nodeId}),
+		(nodeId: string) => {dispatch({type: 'collapse-node', nodeId});
+		},
 		[],
 	);
 	const toggleExpanded = useCallback(
-		() => dispatch({type: 'toggle-expanded'}),
+		() => {dispatch({type: 'toggle-expanded'});
+		},
 		[],
 	);
 	const expandAll = useCallback(
-		() => dispatch({type: 'expand-all'}),
+		() => {dispatch({type: 'expand-all'});
+		},
 		[],
 	);
 	const collapseAll = useCallback(
-		() => dispatch({type: 'collapse-all'}),
+		() => {dispatch({type: 'collapse-all'});
+		},
 		[],
 	);
-	const select = useCallback(() => dispatch({type: 'select'}), []);
+	const select = useCallback(() => {dispatch({type: 'select'});
+	}, []);
 	const focusParent = useCallback(
-		() => dispatch({type: 'focus-parent'}),
+		() => {dispatch({type: 'focus-parent'});
+		},
 		[],
 	);
 	const focusFirstChild = useCallback(
-		() => dispatch({type: 'focus-first-child'}),
+		() => {dispatch({type: 'focus-first-child'});
+		},
 		[],
 	);
 	const setLoading = useCallback(
-		(nodeId: string, isLoading: boolean) =>
-			dispatch({type: 'set-loading', nodeId, isLoading}),
+		(nodeId: string, isLoading: boolean) => {dispatch({type: 'set-loading', nodeId, isLoading});
+		},
 		[],
 	);
 	const setChildrenError = useCallback(
-		(nodeId: string) =>
-			dispatch({type: 'set-children-error', nodeId}),
+		(nodeId: string) => {dispatch({type: 'set-children-error', nodeId});
+		},
 		[],
 	);
 	const insertChildren = useCallback(
-		(parentId: string, children: Array<TreeNode<T>>) =>
-			dispatch({type: 'insert-children', parentId, children}),
+		(parentId: string, children: Array<TreeNode<T>>) => {dispatch({type: 'insert-children', parentId, children});
+		},
 		[],
 	);
 

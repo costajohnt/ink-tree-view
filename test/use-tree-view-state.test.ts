@@ -6,7 +6,7 @@ import {
 } from '../src/components/tree-view/use-tree-view-state.js';
 import {type TreeNode} from '../src/types.js';
 
-const sampleData: Array<TreeNode> = [
+const sampleData: TreeNode[] = [
 	{
 		id: 'root-1',
 		label: 'Documents',
@@ -39,7 +39,7 @@ const sampleData: Array<TreeNode> = [
 
 function makeState(
 	overrides?: Partial<{
-		data: Array<TreeNode>;
+		data: TreeNode[];
 		selectionMode: 'none' | 'single' | 'multiple';
 		defaultExpanded: ReadonlySet<string> | 'all';
 		defaultSelected: ReadonlySet<string>;

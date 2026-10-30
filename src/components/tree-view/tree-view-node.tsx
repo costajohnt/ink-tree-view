@@ -62,10 +62,10 @@ export function buildNodeAriaState(
 }
 
 /**
- * Compares two sets of `TreeViewNode` props by their primitive values so
- * `React.memo` can skip re-rendering rows whose state did not change. Without
- * this, a keypress recreates every row's `nodeState` object and forces the
- * whole viewport to re-render.
+ Compares two sets of `TreeViewNode` props by their primitive values so
+ `React.memo` can skip re-rendering rows whose state did not change. Without
+ this, a keypress recreates every row's `nodeState` object and forces the
+ whole viewport to re-render.
  */
 export function areTreeViewNodePropsEqual<T>(
 	previous: TreeViewNodeProps<T>,
@@ -104,7 +104,7 @@ function TreeViewNodeInner<T>({
 	// Determine expand/collapse indicator
 	let expandChar = ' ';
 	if (isLoading) {
-		expandChar = '\u27F3'; // ⟳
+		expandChar = '\u{27F3}'; // ⟳
 	} else if (hasChildren) {
 		expandChar = isExpanded ? figures.triangleDown : figures.triangleRight;
 	}

@@ -65,7 +65,7 @@ export function TreeView<T = Record<string, unknown>>({
 			{isScreenReaderEnabled ? <Text aria-label={ariaLabel} /> : null}
 			{state.hasScrollUp
 				? <Text {...styles.scrollIndicator()} aria-label={`${state.viewportFromIndex} more items above`}>
-					{'  \u2191 '}{state.viewportFromIndex} more above
+					{'  \u{2191} '}{state.viewportFromIndex} more above
 				</Text>
 				: null}
 			{state.viewportNodes.map(({node, state: nodeState}) => {
@@ -105,7 +105,7 @@ export function TreeView<T = Record<string, unknown>>({
 			})}
 			{state.hasScrollDown
 				? <Text {...styles.scrollIndicator()} aria-label={`${state.visibleCount - state.viewportToIndex} more items below`}>
-					{'  \u2193 '}{state.visibleCount - state.viewportToIndex}{' more below'}
+					{'  \u{2193} '}{state.visibleCount - state.viewportToIndex}{' more below'}
 				</Text>
 				: null}
 		</Box>
