@@ -1,5 +1,5 @@
 import {useInput} from 'ink';
-import {useRef} from 'react';
+import {useLayoutEffect, useRef} from 'react';
 import {type SelectionMode, type AsyncChildrenFn} from '../../types.js';
 import {type TreeViewState} from './use-tree-view-state.js';
 
@@ -20,13 +20,14 @@ export function useTreeView<T>({
 }: UseTreeViewProps<T>) {
 	const loadingRef = useRef(new Set<string>());
 	const stateRef = useRef(state);
-	stateRef.current = state;
-
 	const loadChildrenRef = useRef(loadChildren);
-	loadChildrenRef.current = loadChildren;
-
 	const onLoadErrorRef = useRef(onLoadError);
-	onLoadErrorRef.current = onLoadError;
+	// Synced at commit, before the input handler below is re-registered.
+	useLayoutEffect(() => {
+		stateRef.current = state;
+		loadChildrenRef.current = loadChildren;
+		onLoadErrorRef.current = onLoadError;
+	});
 
 	const triggerLoadRef = useRef(async (nodeId: string) => {
 		if (loadingRef.current.has(nodeId)) {
@@ -68,6 +69,35 @@ export function useTreeView<T>({
 
 	const triggerLoad = triggerLoadRef.current;
 
+	const expandOrDescend = () => {
+		const {focusedId} = state;
+		if (focusedId === undefined || focusedId === '') {
+			return;
+		}
+
+		if (state.expandedIds.has(focusedId)) {
+			// Already expanded: move to first child
+			state.focusFirstChild();
+			return;
+		}
+
+		// Not expanded: try to expand
+		if (loadChildren) {
+			const flat = state.nodeMap.get(focusedId);
+			if (
+				flat &&
+				flat.hasChildren &&
+				flat.childrenIds.length === 0
+			) {
+				// Async load needed
+				void triggerLoad(focusedId);
+				return;
+			}
+		}
+
+		state.expand();
+	};
+
 	useInput(
 		(input, key) => {
 			if (key.downArrow) {
@@ -81,36 +111,14 @@ export function useTreeView<T>({
 			}
 
 			if (key.rightArrow) {
-				if (
-					state.focusedId &&
-					state.expandedIds.has(state.focusedId)
-				) {
-					// Already expanded: move to first child
-					state.focusFirstChild();
-				} else if (state.focusedId) {
-					// Not expanded: try to expand
-					if (loadChildren) {
-						const flat = state.nodeMap.get(state.focusedId);
-						if (
-							flat &&
-							flat.hasChildren &&
-							flat.childrenIds.length === 0
-						) {
-							// Async load needed
-							void triggerLoad(state.focusedId);
-							return;
-						}
-					}
-
-					state.expand();
-				}
-
+				expandOrDescend();
 				return;
 			}
 
 			if (key.leftArrow) {
 				if (
-					state.focusedId &&
+					state.focusedId !== undefined &&
+					state.focusedId !== '' &&
 					state.expandedIds.has(state.focusedId)
 				) {
 					state.collapse();

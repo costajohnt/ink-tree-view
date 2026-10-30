@@ -25,7 +25,7 @@ A tree view component for [Ink](https://github.com/vadimdemedes/ink) (React for 
 
 ## Install
 
-```
+```sh
 npm install ink-tree-view
 ```
 

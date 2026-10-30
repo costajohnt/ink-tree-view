@@ -724,7 +724,9 @@ describe('TreeView', () => {
 				<TreeView
 					data={asyncData}
 					loadChildren={loadChildren}
-					onLoadError={() => {}}
+					onLoadError={() => {
+						// The first attempt is expected to fail.
+					}}
 				/>,
 			);
 
@@ -823,7 +825,7 @@ describe('TreeView', () => {
 			const onExpandChange = vi.fn();
 			function Wrapper() {
 				const [expanded, setExpanded] = React.useState(
-					new Set<string>(),
+					() => new Set<string>(),
 				);
 				return (
 					<TreeView
@@ -894,7 +896,7 @@ describe('TreeView', () => {
 			const onSelectChange = vi.fn();
 			function Wrapper() {
 				const [selected, setSelected] = React.useState(
-					new Set<string>(),
+					() => new Set<string>(),
 				);
 				return (
 					<TreeView
@@ -961,7 +963,9 @@ describe('TreeView', () => {
 			// true, permanently swallowing every onFocusChange.
 			const warnSpy = vi
 				.spyOn(console, 'warn')
-				.mockImplementation(() => {});
+				.mockImplementation(() => {
+					// Silence the expected dev warning.
+				});
 			const onFocusChange = vi.fn();
 			const {stdin} = render(
 				<TreeView

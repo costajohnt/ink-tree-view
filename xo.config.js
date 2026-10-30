@@ -6,42 +6,19 @@ import base from '@costajohnt/ink-config/xo';
 const xoConfig = [
 	...base,
 	{
-		// Rules this codebase does not satisfy yet under the shared config.
-		// Burn these down by fixing the code and deleting the line.
+		files: ['src/components/tree-view/use-tree-view-state.ts'],
 		rules: {
-			'@eslint-react/naming-convention-ref-name': 'off',
-			'@stylistic/brace-style': 'off',
-			'@stylistic/curly-newline': 'off',
-			'@stylistic/max-statements-per-line': 'off',
-			'@typescript-eslint/strict-boolean-expressions': 'off',
-			'@typescript-eslint/switch-exhaustiveness-check': 'off',
+			// `reducer` is intentionally one switch over every action type; splitting it scatters the state machine.
 			complexity: 'off',
-			'jsx-a11y-x/aria-props': 'off',
-			'react-hooks/refs': 'off',
-			'unicorn/consistent-boolean-name': 'off',
-			'unicorn/no-immediate-mutation': 'off',
-			'unicorn/prefer-early-return': 'off',
-			'unicorn/prefer-minimal-ternary': 'off',
+			// The reducer's `default` returns state unchanged as a guard against unknown actions at runtime.
+			'@typescript-eslint/switch-exhaustiveness-check': 'off',
 		},
 	},
 	{
 		files: ['test/**', 'src/**/__tests__/**'],
 		rules: {
-			'@eslint-react/use-state': 'off',
-			'@typescript-eslint/no-empty-function': 'off',
+			// CI tests on Node 20, which has no `Promise.withResolvers` (added in Node 22).
 			'unicorn/prefer-promise-with-resolvers': 'off',
-		},
-	},
-	{
-		files: ['**/*.md'],
-		rules: {
-			'markdown/fenced-code-language': 'off',
-		},
-	},
-	{
-		files: ['package.json'],
-		rules: {
-			'package-json/prefer-side-effects-field': 'off',
 		},
 	},
 ];

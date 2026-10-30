@@ -84,7 +84,7 @@ export function TreeView<T = Record<string, unknown>>({
 							aria-role="listitem"
 							aria-state={buildNodeAriaState(nodeState, selectionMode)}
 						>
-							{nodeAriaLabel ? <Text aria-label={nodeAriaLabel} /> : null}
+							{nodeAriaLabel !== undefined && nodeAriaLabel !== '' ? <Text aria-label={nodeAriaLabel} /> : null}
 							{renderNode({node, state: nodeState})}
 						</Box>
 					);
