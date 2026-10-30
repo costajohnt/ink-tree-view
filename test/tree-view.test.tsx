@@ -1,4 +1,9 @@
-import {describe, it, expect, vi} from 'vitest';
+import {
+	describe,
+	it,
+	expect,
+	vi,
+} from 'vitest';
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {Text} from 'ink';
@@ -10,10 +15,10 @@ import {
 import theme from '../src/components/tree-view/theme.js';
 import {type TreeNode, type TreeNodeRendererProps, type TreeNodeState} from '../src/types.js';
 
-const ARROW_UP = '\u001B[A';
-const ARROW_DOWN = '\u001B[B';
-const ARROW_RIGHT = '\u001B[C';
-const ARROW_LEFT = '\u001B[D';
+const ARROW_UP = '\u{1B}[A';
+const ARROW_DOWN = '\u{1B}[B';
+const ARROW_RIGHT = '\u{1B}[C';
+const ARROW_LEFT = '\u{1B}[D';
 const ENTER = '\r';
 const SPACE = ' ';
 const ESC = String.fromCodePoint(27);
@@ -26,11 +31,11 @@ type Stdin = ReturnType<typeof render>['stdin'];
 type LastFrame = () => string | undefined;
 
 /**
- * Flush a handful of macrotask turns so pending renders, effects, and mocked
- * promises settle. Used after a successful wait, and before NEGATIVE
- * assertions where there is no positive condition to poll for. All async work
- * in these tests is microtask/timer-0 based, so a fixed number of event-loop
- * turns is deterministic regardless of machine load.
+ Flush a handful of macrotask turns so pending renders, effects, and mocked
+ promises settle. Used after a successful wait, and before NEGATIVE
+ assertions where there is no positive condition to poll for. All async work
+ in these tests is microtask/timer-0 based, so a fixed number of event-loop
+ turns is deterministic regardless of machine load.
  */
 async function settle(turns = 10): Promise<void> {
 	if (turns <= 0) {
@@ -44,15 +49,15 @@ async function settle(turns = 10): Promise<void> {
 }
 
 /**
- * Poll until `assertion` stops throwing, or fail with its last error after
- * `timeoutMs`. Deterministic replacement for fixed sleeps: passes as soon as
- * the condition holds, only times out when the condition genuinely never does.
- *
- * After the condition holds, flush a few macrotask turns: ink's `useInput`
- * re-attaches its stdin listener in a passive effect after every render, so a
- * keypress written the instant a new frame is visible (commit happens before
- * effects) can be dropped. The flush lets effects settle before the caller's
- * next `stdin.write`.
+ Poll until `assertion` stops throwing, or fail with its last error after
+ `timeoutMs`. Deterministic replacement for fixed sleeps: passes as soon as
+ the condition holds, only times out when the condition genuinely never does.
+ 
+ After the condition holds, flush a few macrotask turns: ink's `useInput`
+ re-attaches its stdin listener in a passive effect after every render, so a
+ keypress written the instant a new frame is visible (commit happens before
+ effects) can be dropped. The flush lets effects settle before the caller's
+ next `stdin.write`.
  */
 async function waitFor(assertion: () => void, timeoutMs = 5000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
@@ -75,7 +80,9 @@ async function waitFor(assertion: () => void, timeoutMs = 5000): Promise<void> {
 	await settle();
 }
 
-/** Wait until ink has attached its stdin listener, so the first keypress is not dropped. */
+/**
+Wait until ink has attached its stdin listener, so the first keypress is not dropped.
+*/
 async function waitForInput(stdin: Stdin): Promise<void> {
 	await waitFor(() => {
 		if (stdin.listenerCount('readable') === 0) {
@@ -84,7 +91,9 @@ async function waitForInput(stdin: Stdin): Promise<void> {
 	});
 }
 
-/** Write `key` and poll until the frame re-renders. */
+/**
+Write `key` and poll until the frame re-renders.
+*/
 async function press(lastFrame: LastFrame, stdin: Stdin, key: string): Promise<void> {
 	const before = lastFrame();
 	stdin.write(key);
@@ -95,13 +104,15 @@ async function press(lastFrame: LastFrame, stdin: Stdin, key: string): Promise<v
 	});
 }
 
-/** Write `key` when no visible change is expected, then let it be processed. */
+/**
+Write `key` when no visible change is expected, then let it be processed.
+*/
 async function pressWithoutChange(stdin: Stdin, key: string): Promise<void> {
 	stdin.write(key);
 	await settle();
 }
 
-const sampleData: Array<TreeNode> = [
+const sampleData: TreeNode[] = [
 	{
 		id: 'root-1',
 		label: 'Documents',
@@ -371,7 +382,7 @@ describe('TreeView', () => {
 		it('renders custom node content', () => {
 			const customRenderer = ({node, state}: TreeNodeRendererProps) => (
 				<Text>
-					{state.isFocused ? '>> ' : '   '}
+					{state.isFocused ? '>> ' : ' '.repeat(3)}
 					{node.label.toUpperCase()}
 				</Text>
 			);
@@ -488,9 +499,9 @@ describe('TreeView', () => {
 
 	describe('large tree', () => {
 		it('renders 100 nodes without error with virtualization', () => {
-			const largeData: Array<TreeNode> = [];
+			const largeData: TreeNode[] = [];
 			for (let i = 0; i < 20; i++) {
-				const children: Array<TreeNode> = [];
+				const children: TreeNode[] = [];
 				for (let j = 0; j < 5; j++) {
 					children.push({
 						id: `node-${i}-${j}`,
@@ -549,7 +560,7 @@ describe('TreeView', () => {
 	});
 
 	describe('async loading (loadChildren)', () => {
-		const asyncData: Array<TreeNode> = [
+		const asyncData: TreeNode[] = [
 			{
 				id: 'lazy-root',
 				label: 'Lazy Root',
@@ -591,9 +602,9 @@ describe('TreeView', () => {
 		});
 
 		it('shows loading state during async operation', async () => {
-			let resolveFn!: (value: Array<TreeNode>) => void;
+			let resolveFn!: (value: TreeNode[]) => void;
 			const loadChildren = vi.fn().mockReturnValue(
-				new Promise<Array<TreeNode>>(resolve => {
+				new Promise<TreeNode[]>(resolve => {
 					resolveFn = resolve;
 				}),
 			);
@@ -607,7 +618,7 @@ describe('TreeView', () => {
 
 			// Loading indicator should be shown (the ⟳ character)
 			await waitFor(() => {
-				expect(lastFrame()).toContain('\u27F3');
+				expect(lastFrame()).toContain('\u{27F3}');
 			});
 
 			// Resolve to clean up
@@ -689,7 +700,7 @@ describe('TreeView', () => {
 			// The tree still renders, the loading indicator clears, and the
 			// duplicate child was not inserted.
 			await waitFor(() => {
-				expect(lastFrame()).not.toContain('\u27F3');
+				expect(lastFrame()).not.toContain('\u{27F3}');
 			});
 			expect(lastFrame()).toContain('Lazy Root');
 			expect(lastFrame()).toContain('Leaf Node');
@@ -698,15 +709,15 @@ describe('TreeView', () => {
 
 		it('node can be retried after load error', async () => {
 			let callCount = 0;
-			const loadChildren = vi.fn().mockImplementation(() => {
+			const loadChildren = vi.fn().mockImplementation(async () => {
 				callCount++;
 				if (callCount === 1) {
-					return Promise.reject(new Error('First attempt fails'));
+					throw new Error('First attempt fails');
 				}
 
-				return Promise.resolve([
+				return [
 					{id: 'child-a', label: 'Child A'},
-				]);
+				];
 			});
 
 			const {lastFrame, stdin} = render(
@@ -722,7 +733,7 @@ describe('TreeView', () => {
 			stdin.write(ARROW_RIGHT);
 			await waitFor(() => {
 				expect(loadChildren).toHaveBeenCalledTimes(1);
-				expect(lastFrame()).not.toContain('\u27F3');
+				expect(lastFrame()).not.toContain('\u{27F3}');
 			});
 			expect(lastFrame()).not.toContain('Child A');
 

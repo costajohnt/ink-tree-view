@@ -1,41 +1,67 @@
 import {type TreeNode} from './types.js';
 
 /**
- * A flattened representation of a tree node with navigation links.
+ A flattened representation of a tree node with navigation links.
  */
 export type FlatNode<T = Record<string, unknown>> = {
-	/** The original tree node. */
+	/**
+	The original tree node.
+	*/
 	node: TreeNode<T>;
-	/** Depth in the tree (0 for roots). */
+	/**
+	Depth in the tree (0 for roots).
+	*/
 	depth: number;
-	/** Index in the flattened DFS order (across ALL nodes, not just visible). */
+	/**
+	Index in the flattened DFS order (across ALL nodes, not just visible).
+	*/
 	flatIndex: number;
-	/** Parent's id, or undefined if root. */
+	/**
+	Parent's id, or undefined if root.
+	*/
 	parentId: string | undefined;
-	/** Whether this node has children. */
+	/**
+	Whether this node has children.
+	*/
 	hasChildren: boolean;
-	/** Ordered list of direct children IDs. */
+	/**
+	Ordered list of direct children IDs.
+	*/
 	childrenIds: string[];
-	/** Previous sibling's ID, or undefined. */
+	/**
+	Previous sibling's ID, or undefined.
+	*/
 	previousSiblingId: string | undefined;
-	/** Next sibling's ID, or undefined. */
+	/**
+	Next sibling's ID, or undefined.
+	*/
 	nextSiblingId: string | undefined;
-	/** Zero-based index among siblings. */
+	/**
+	Zero-based index among siblings.
+	*/
 	siblingIndex: number;
-	/** Total number of siblings (including this node). */
+	/**
+	Total number of siblings (including this node).
+	*/
 	siblingCount: number;
 };
 
 /**
- * A flattened map of all tree nodes built via DFS traversal.
- * Stores parent/child/sibling links for O(1) navigation.
+ A flattened map of all tree nodes built via DFS traversal.
+ Stores parent/child/sibling links for O(1) navigation.
  */
 export class TreeNodeMap<T = Record<string, unknown>> {
-	/** Map from node ID to FlatNode. */
+	/**
+	Map from node ID to FlatNode.
+	*/
 	private readonly map: Map<string, FlatNode<T>>;
-	/** All node IDs in DFS order. */
+	/**
+	All node IDs in DFS order.
+	*/
 	readonly orderedIds: string[];
-	/** Root-level node IDs. */
+	/**
+	Root-level node IDs.
+	*/
 	readonly rootIds: string[];
 
 	constructor(data: Array<TreeNode<T>>) {
@@ -131,28 +157,28 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 	}
 
 	/**
-	 * Get a flat node by ID.
+	 Get a flat node by ID.
 	 */
 	get(id: string): FlatNode<T> | undefined {
 		return this.map.get(id);
 	}
 
 	/**
-	 * Total number of nodes in the tree.
+	 Total number of nodes in the tree.
 	 */
 	get size(): number {
 		return this.map.size;
 	}
 
 	/**
-	 * Iterate over all entries.
+	 Iterate over all entries.
 	 */
 	entries(): IterableIterator<[string, FlatNode<T>]> {
 		return this.map.entries();
 	}
 
 	/**
-	 * Check if a node is a descendant of another node.
+	 Check if a node is a descendant of another node.
 	 */
 	isDescendantOf(nodeId: string, ancestorId: string): boolean {
 		let currentId: string | undefined = nodeId;
@@ -173,11 +199,11 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 	}
 
 	/**
-	 * Given a set of expanded node IDs, return the ordered list of
-	 * VISIBLE node IDs (i.e., a node is visible if all its ancestors
-	 * are expanded).
-	 *
-	 * Uses iterative DFS, skipping collapsed subtrees.
+	 Given a set of expanded node IDs, return the ordered list of
+	 VISIBLE node IDs (i.e., a node is visible if all its ancestors
+	 are expanded).
+	 
+	 Uses iterative DFS, skipping collapsed subtrees.
 	 */
 	getVisibleIds(expandedIds: ReadonlySet<string>): string[] {
 		const result: string[] = [];
@@ -205,13 +231,13 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 	}
 
 	/**
-	 * Insert dynamically-loaded children under a parent node.
-	 * Returns a new TreeNodeMap (immutable operation).
-	 *
-	 * Note: this rebuilds the entire flattened map (O(total nodes)) on every
-	 * insertion. For trees with very frequent async loads this could be made
-	 * incremental, but the full rebuild keeps the sibling/flat-index bookkeeping
-	 * correct and is negligible for typical tree sizes.
+	 Insert dynamically-loaded children under a parent node.
+	 Returns a new TreeNodeMap (immutable operation).
+	 
+	 Note: this rebuilds the entire flattened map (O(total nodes)) on every
+	 insertion. For trees with very frequent async loads this could be made
+	 incremental, but the full rebuild keeps the sibling/flat-index bookkeeping
+	 correct and is negligible for typical tree sizes.
 	 */
 	withChildren(
 		parentId: string,
@@ -228,11 +254,7 @@ export class TreeNodeMap<T = Record<string, unknown>> {
 				return {...node, children};
 			}
 
-			if (node.children) {
-				return {...node, children: node.children.map(child => rebuildNode(child))};
-			}
-
-			return node;
+			return node.children ? {...node, children: node.children.map(child => rebuildNode(child))} : node;
 		};
 
 		// Find the root data by walking rootIds

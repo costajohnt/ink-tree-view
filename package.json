@@ -2,36 +2,23 @@
   "name": "ink-tree-view",
   "version": "0.4.2",
   "description": "A tree view component for Ink with expand/collapse, keyboard navigation, and selection",
-  "author": "John Costa",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/costajohnt/ink-tree-view"
-  },
+  "repository": "github:costajohnt/ink-tree-view",
   "homepage": "https://github.com/costajohnt/ink-tree-view#readme",
   "bugs": "https://github.com/costajohnt/ink-tree-view/issues",
-  "keywords": [
-    "ink",
-    "cli",
-    "tree",
-    "treeview",
-    "terminal",
-    "react",
-    "tui",
-    "hierarchy"
-  ],
+  "author": "John Costa",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",
@@ -43,10 +30,19 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
-  "peerDependencies": {
-    "ink": ">=6.0.0",
-    "react": ">=19.0.0"
-  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "ink",
+    "cli",
+    "tree",
+    "treeview",
+    "terminal",
+    "react",
+    "tui",
+    "hierarchy"
+  ],
   "dependencies": {
     "figures": "^6.1.0"
   },
@@ -63,7 +59,8 @@
     "vitest": "^4.1.11",
     "xo": "^5.0.1"
   },
-  "engines": {
-    "node": ">=20"
+  "peerDependencies": {
+    "ink": ">=6.0.0",
+    "react": ">=19.0.0"
   }
 }
