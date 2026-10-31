@@ -26,8 +26,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          HEAD_BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
-        run: gh workflow run ci.yml --ref "$HEAD_BRANCH"
+          # Step env is evaluated even when `if` is false, so fromJSON('') here
+          # would fail the job on every push without a release PR. Parse in shell.
+          PR_JSON: ${{ steps.release.outputs.pr }}
+        run: gh workflow run ci.yml --ref "$(jq -r .headBranchName <<<"$PR_JSON")"
 
   publish:
     needs: release-please
