@@ -4,6 +4,9 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  # Release-please PRs are opened with GITHUB_TOKEN, which does not trigger
+  # pull_request runs; release.yml dispatches this workflow on the PR branch instead.
+  workflow_dispatch:
 
 jobs:
   ci:

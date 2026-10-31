@@ -4,13 +4,13 @@ on:
     branches: [main, master]
   workflow_dispatch: {}
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write # dispatch CI on the release PR branch
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -19,6 +19,17 @@ jobs:
         id: release
         with:
           release-type: node
+      # GITHUB_TOKEN-created PRs get no pull_request CI run, but workflow_dispatch
+      # always creates one. Its checks attach to the PR head SHA.
+      - name: Run CI on the release PR
+        if: steps.release.outputs.pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # Step env is evaluated even when `if` is false, so fromJSON('') here
+          # would fail the job on every push without a release PR. Parse in shell.
+          PR_JSON: ${{ steps.release.outputs.pr }}
+        run: gh workflow run ci.yml --ref "$(jq -r .headBranchName <<<"$PR_JSON")"
 
   publish:
     needs: release-please
