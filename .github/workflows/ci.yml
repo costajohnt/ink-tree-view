@@ -8,4 +8,4 @@ on:
 jobs:
   ci:
     # Shared lint + build + typecheck + test matrix for all the Ink libraries.
-    uses: costajohnt/ink-config/.github/workflows/ci.yml@main
+    uses: costajohnt/ink-config/.github/workflows/ci.yml@v1
