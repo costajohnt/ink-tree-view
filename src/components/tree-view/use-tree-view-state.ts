@@ -178,6 +178,9 @@ function adjustViewportForNewVisible<T>(
 	// Clamp to new bounds
 	to = Math.min(to, newVisible.length);
 	from = Math.max(0, to - state.visibleNodeCount);
+	// Refill to capacity when the list grew past a window that was smaller
+	// than visibleNodeCount (e.g. 3 roots, then a root with many children).
+	to = Math.min(newVisible.length, from + state.visibleNodeCount);
 
 	// Ensure focused node is visible
 	if (focusedIdx >= to) {
