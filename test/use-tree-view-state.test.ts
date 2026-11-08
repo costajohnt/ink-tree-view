@@ -425,6 +425,28 @@ describe('reducer + createDefaultState', () => {
 			expect(state.viewportToIndex).toBe(3);
 		});
 
+		it('grows viewport to capacity when expanding past visibleNodeCount', () => {
+			const data: TreeNode[] = [
+				{
+					id: 'big',
+					label: 'Big',
+					children: Array.from({length: 20}, (_, i) => ({
+						id: `big-${i}`,
+						label: `Child ${i}`,
+					})),
+				},
+				{id: 'r2', label: 'R2'},
+				{id: 'r3', label: 'R3'},
+			];
+			let state = makeState({data, visibleNodeCount: 10});
+			expect(state.viewportToIndex).toBe(3);
+
+			state = reducer(state, {type: 'expand-node', nodeId: 'big'});
+			expect(state.visibleIds).toHaveLength(23);
+			expect(state.viewportFromIndex).toBe(0);
+			expect(state.viewportToIndex).toBe(10);
+		});
+
 		it('no scrolling when all nodes fit', () => {
 			const state = makeState({visibleNodeCount: 10});
 			expect(state.viewportFromIndex).toBe(0);
