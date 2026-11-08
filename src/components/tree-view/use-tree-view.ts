@@ -72,7 +72,7 @@ export function useTreeView<T>({
 	// Focused node is lazy (isParent) with nothing loaded yet: start the load,
 	// which expands the node once children arrive. Shared by Right Arrow and
 	// the Enter/Space toggle so neither can expand a lazy node without loading.
-	const loadFocusedIfUnloaded = (): boolean => {
+	const didStartLazyLoad = (): boolean => {
 		const {focusedId} = state;
 		if (!loadChildren || focusedId === undefined || focusedId === '') {
 			return false;
@@ -89,13 +89,9 @@ export function useTreeView<T>({
 
 	const expandOrDescend = () => {
 		const {focusedId} = state;
-		if (focusedId === undefined || focusedId === '') {
-			return;
-		}
-
-		// Also covers a lazy node already marked expanded (controlled
-		// `expanded`) with no children loaded.
-		if (loadFocusedIfUnloaded()) {
+		// The lazy-load check also covers a lazy node already marked expanded
+		// (controlled `expanded`) with no children loaded.
+		if (focusedId === undefined || focusedId === '' || didStartLazyLoad()) {
 			return;
 		}
 
@@ -111,7 +107,7 @@ export function useTreeView<T>({
 		const {focusedId} = state;
 		const isExpanded =
 			focusedId !== undefined && state.expandedIds.has(focusedId);
-		if (isExpanded || !loadFocusedIfUnloaded()) {
+		if (isExpanded || !didStartLazyLoad()) {
 			state.toggleExpanded();
 		}
 	};
