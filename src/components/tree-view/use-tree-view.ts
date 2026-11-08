@@ -69,33 +69,51 @@ export function useTreeView<T>({
 
 	const triggerLoad = triggerLoadRef.current;
 
+	// Focused node is lazy (isParent) with nothing loaded yet: start the load,
+	// which expands the node once children arrive. Shared by Right Arrow and
+	// the Enter/Space toggle so neither can expand a lazy node without loading.
+	const loadFocusedIfUnloaded = (): boolean => {
+		const {focusedId} = state;
+		if (!loadChildren || focusedId === undefined || focusedId === '') {
+			return false;
+		}
+
+		const flat = state.nodeMap.get(focusedId);
+		if (!flat?.hasChildren || flat.childrenIds.length > 0) {
+			return false;
+		}
+
+		void triggerLoad(focusedId);
+		return true;
+	};
+
 	const expandOrDescend = () => {
 		const {focusedId} = state;
 		if (focusedId === undefined || focusedId === '') {
 			return;
 		}
 
+		// Also covers a lazy node already marked expanded (controlled
+		// `expanded`) with no children loaded.
+		if (loadFocusedIfUnloaded()) {
+			return;
+		}
+
 		if (state.expandedIds.has(focusedId)) {
-			// Already expanded: move to first child
 			state.focusFirstChild();
 			return;
 		}
 
-		// Not expanded: try to expand
-		if (loadChildren) {
-			const flat = state.nodeMap.get(focusedId);
-			if (
-				flat &&
-				flat.hasChildren &&
-				flat.childrenIds.length === 0
-			) {
-				// Async load needed
-				void triggerLoad(focusedId);
-				return;
-			}
-		}
-
 		state.expand();
+	};
+
+	const toggleExpanded = () => {
+		const {focusedId} = state;
+		const isExpanded =
+			focusedId !== undefined && state.expandedIds.has(focusedId);
+		if (isExpanded || !loadFocusedIfUnloaded()) {
+			state.toggleExpanded();
+		}
 	};
 
 	useInput(
@@ -131,7 +149,7 @@ export function useTreeView<T>({
 
 			if (key.return) {
 				if (selectionMode === 'none') {
-					state.toggleExpanded();
+					toggleExpanded();
 				} else {
 					state.select();
 				}
@@ -143,7 +161,7 @@ export function useTreeView<T>({
 				if (selectionMode === 'multiple') {
 					state.select();
 				} else {
-					state.toggleExpanded();
+					toggleExpanded();
 				}
 
 				return;

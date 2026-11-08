@@ -459,7 +459,9 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 		case 'expand-all': {
 			const allParentIds = new Set<string>();
 			for (const [id, flat] of state.nodeMap.entries()) {
-				if (flat.hasChildren) {
+				// Skip unloaded lazy (isParent) nodes: expanding them here would
+				// show an empty expanded node without ever calling loadChildren.
+				if (flat.childrenIds.length > 0) {
 					allParentIds.add(id);
 				}
 			}
@@ -621,6 +623,12 @@ export function reducer<T>(state: State<T>, action: Action<T>): State<T> {
 				nodeMap: newNodeMap,
 				visibleIds: newVisible,
 				visibleIdIndex: buildVisibleIdIndex(newVisible),
+				// The parent may already be expanded, in which case the follow-up
+				// expandNode is a no-op and would leave the viewport stale.
+				...adjustViewportForNewVisible(
+					{...state, visibleIds: newVisible},
+					newVisible,
+				),
 			};
 		}
 
@@ -662,7 +670,7 @@ export function createDefaultState<T>({
 	if (defaultExpanded === 'all') {
 		expandedIds = new Set<string>();
 		for (const [id, flat] of nodeMap.entries()) {
-			if (flat.hasChildren) {
+			if (flat.childrenIds.length > 0) {
 				expandedIds.add(id);
 			}
 		}
