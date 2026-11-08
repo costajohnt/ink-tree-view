@@ -473,6 +473,18 @@ describe('reducer + createDefaultState', () => {
 			const state = makeState({defaultExpanded: 'all'});
 			expect(state.visibleIds.length).toBe(9);
 		});
+
+		it('"all" and expand-all skip unloaded isParent nodes', () => {
+			const data: TreeNode[] = [
+				{id: 'lazy', label: 'Lazy', isParent: true},
+				{id: 'dir', label: 'Dir', children: [{id: 'f', label: 'F'}]},
+			];
+			const state = makeState({data, defaultExpanded: 'all'});
+			expect([...state.expandedIds]).toEqual(['dir']);
+
+			const after = reducer(makeState({data}), {type: 'expand-all'});
+			expect([...after.expandedIds]).toEqual(['dir']);
+		});
 	});
 
 	describe('defaultSelected', () => {

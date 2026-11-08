@@ -601,6 +601,48 @@ describe('TreeView', () => {
 			);
 		});
 
+		it('Enter on an unloaded isParent node triggers loadChildren', async () => {
+			const loadChildren = vi.fn().mockResolvedValue([
+				{id: 'child-a', label: 'Child A'},
+			]);
+
+			const {lastFrame, stdin} = render(
+				<TreeView data={asyncData} loadChildren={loadChildren} />,
+			);
+
+			await waitForInput(stdin);
+			stdin.write(ENTER);
+
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Child A');
+			});
+			expect(loadChildren).toHaveBeenCalledTimes(1);
+		});
+
+		it('Right Arrow loads an isParent node that is expanded but unloaded', async () => {
+			const loadChildren = vi.fn().mockResolvedValue([
+				{id: 'child-a', label: 'Child A'},
+			]);
+
+			const {lastFrame, stdin} = render(
+				<TreeView
+					data={asyncData}
+					expanded={new Set(['lazy-root'])}
+					loadChildren={loadChildren}
+				/>,
+			);
+
+			await waitForInput(stdin);
+			stdin.write(ARROW_RIGHT);
+
+			await waitFor(() => {
+				expect(lastFrame()).toContain('Child A');
+			});
+			// Viewport grew with the inserted child, so the sibling is not pushed out.
+			expect(lastFrame()).toContain('Leaf Node');
+			expect(loadChildren).toHaveBeenCalledTimes(1);
+		});
+
 		it('shows loading state during async operation', async () => {
 			const {promise, resolve: resolveFn} = Promise.withResolvers<TreeNode[]>();
 			const loadChildren = vi.fn().mockReturnValue(promise);
