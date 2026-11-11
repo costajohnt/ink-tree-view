@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/costajohnt/ink-tree-view/compare/v1.0.0...v1.0.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* load lazy nodes on Enter/Space and when expanded but unloaded ([#25](https://github.com/costajohnt/ink-tree-view/issues/25)) ([1c8f9f6](https://github.com/costajohnt/ink-tree-view/commit/1c8f9f6ccf4125a0d9ff0118993ac028fad7baab))
+* refill viewport to capacity when the visible list grows ([#24](https://github.com/costajohnt/ink-tree-view/issues/24)) ([6f7c122](https://github.com/costajohnt/ink-tree-view/commit/6f7c1221ba8d0865984162c0e17196d33c923296))
+
 ## [1.0.0](https://github.com/costajohnt/ink-tree-view/compare/v0.4.2...v1.0.0) (2026-10-30)
 
 
